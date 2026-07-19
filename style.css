@@ -714,6 +714,30 @@ main { flex: 1; width: 100%; max-width: 880px; margin: 0 auto; padding: 24px 20p
 .rad-fix { margin-top: 12px; background: var(--warn-soft); border-radius: 12px; padding: 12px 14px; font-size: .9rem; color: var(--warn); }
 .rad-fix b { color: var(--ink); }
 
+/* ---------- 앱 설치 배너 ---------- */
+.install-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: linear-gradient(135deg, #14915f, #0d7a4e); color: #fff;
+  border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;
+  box-shadow: 0 4px 14px rgba(20,145,95,.3); position: relative;
+}
+.install-bar.ios { background: linear-gradient(135deg, #3457d5, #6a3ff2); }
+.ib-left { flex: 1; min-width: 190px; }
+.ib-left b { font-size: 1rem; }
+.ib-sub { font-size: .84rem; opacity: .95; margin-top: 3px; line-height: 1.55; }
+.ib-sub b { font-size: .84rem; background: rgba(255,255,255,.25); border-radius: 5px; padding: 1px 5px; }
+.ib-warn { display: inline-block; margin-top: 5px; font-size: .8rem; color: #ffe08a; }
+.ib-go {
+  background: #fff; color: #0d7a4e; border-radius: 999px; padding: 9px 18px;
+  font-weight: 800; font-size: .9rem; cursor: pointer; flex-shrink: 0;
+}
+.ib-go:hover { transform: scale(1.04); }
+.ib-x {
+  background: rgba(255,255,255,.2); border: none; color: #fff; cursor: pointer;
+  width: 26px; height: 26px; border-radius: 50%; font-size: .8rem; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-family: inherit;
+}
+
 /* ---------- 확신도 베팅 ---------- */
 .conf-wrap { margin-top: 14px; background: var(--brand-soft); border-radius: 14px; padding: 14px; animation: rise .25s ease; }
 .conf-q { text-align: center; font-weight: 800; margin-bottom: 10px; color: var(--brand-deep); }
@@ -982,6 +1006,8 @@ main { flex: 1; width: 100%; max-width: 880px; margin: 0 auto; padding: 24px 20p
   .badge-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
   .stat-mark span { font-size: .64rem; }
 
+  .ib-x { width: 40px; height: 40px; }
+  .ib-go { padding: 12px 20px; }
   .climb-floor { font-size: 2.4rem; }
   .fill-formula { font-size: 1.3rem; }
   .fill-opt { font-size: 1.1rem; padding: 16px 8px; }

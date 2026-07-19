@@ -17,7 +17,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167.png">
 <link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
 <header class="topbar">
@@ -67,6 +67,19 @@ if ('serviceWorker' in navigator) {
     location.reload();
   });
 }
+// 설치 프롬프트를 잡아둔다 (앱 안의 "설치하기" 버튼에서 사용)
+window.__installPrompt = null;
+window.addEventListener('beforeinstallprompt', function (e) {
+  e.preventDefault();
+  window.__installPrompt = e;
+  if (window.refreshInstallBar) window.refreshInstallBar();
+});
+window.addEventListener('appinstalled', function () {
+  window.__installPrompt = null;
+  if (window.refreshInstallBar) window.refreshInstallBar();
+  if (window.toast) toast('🎉 설치 완료! 이제 홈 화면 아이콘으로 열어주세요');
+});
+
 // 저장소를 영구 모드로 요청 — iOS는 홈 화면에 추가된 웹앱에 한해 승인해준다.
 // 승인되면 저장공간이 부족해도 공부 기록이 먼저 지워지지 않는다.
 if (navigator.storage && navigator.storage.persist) {

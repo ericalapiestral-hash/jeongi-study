@@ -597,6 +597,7 @@ function renderHome() {
     '</div>' +
     '</div>' +
 
+    (window.installBarHtml ? window.installBarHtml() : '') +
     ((function () {
       var ill = Object.keys(S.illusion || {}).length;
       return ill ? '<div class="illusion-bar" id="illusionBar">🔴 <b>착각 구역 ' + ill + '개</b> — 안다고 생각했는데 틀린 문제예요. 시험에서 제일 위험해요!<span class="wg-go">바로 잡기 ▶</span></div>' : '';
@@ -645,6 +646,7 @@ function renderHome() {
   $('#btnBoss').onclick = function () { if (window.renderBossHub) window.renderBossHub(); };
   $('#btnDojo').onclick = function () { if (window.renderDojoHub) window.renderDojoHub(); };
   $('#btnGames').onclick = function () { if (window.renderGames) window.renderGames(); };
+  if (window.bindInstallBar) window.bindInstallBar();
   var wg = $('#wrongGauge'); if (wg) wg.onclick = function () { startSession('review'); };
   var ib = $('#illusionBar'); if (ib) ib.onclick = function () { startIllusionSession(); };
   $('#btnReport').onclick = function () { if (window.renderReport) window.renderReport(); };

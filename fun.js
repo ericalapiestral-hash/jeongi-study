@@ -177,6 +177,60 @@ window.dqCheckRewards = function (silent) {
   return newly.length;
 };
 
+/* ---------- 📲 앱으로 설치하기 ---------- */
+window.isStandalone = function () {
+  return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+};
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+window.installBarHtml = function () {
+  if (window.isStandalone()) return '';              // 이미 앱으로 실행 중
+  if (S.installHidden === todayStr()) return '';     // 오늘은 닫아둠
+  if (window.__installPrompt) {
+    return '<div class="install-bar" id="installBar">' +
+      '<div class="ib-left"><b>📲 앱으로 설치하기</b>' +
+      '<div class="ib-sub">홈 화면 아이콘으로 열리고, 인터넷 없어도 공부할 수 있어요</div></div>' +
+      '<span class="ib-go" id="installGo">설치 ▶</span>' +
+      '<button class="ib-x" id="installX">✕</button></div>';
+  }
+  if (isIOS()) {
+    return '<div class="install-bar ios" id="installBar">' +
+      '<div class="ib-left"><b>📲 아이폰에 앱으로 설치</b>' +
+      '<div class="ib-sub">사파리 아래 <b>공유 버튼</b> → <b>홈 화면에 추가</b> 를 누르면 앱이 돼요<br>' +
+      '<span class="ib-warn">⚠️ 지금 사파리에서 푼 기록은 앱으로 안 넘어가요. 설치부터 하고 시작하세요!</span></div></div>' +
+      '<button class="ib-x" id="installX">✕</button></div>';
+  }
+  return '';
+};
+window.bindInstallBar = function () {
+  var go = document.getElementById('installGo');
+  if (go) go.onclick = async function () {
+    var p = window.__installPrompt;
+    if (!p) return;
+    p.prompt();
+    try {
+      var res = await p.userChoice;
+      if (res.outcome === 'accepted') {
+        window.__installPrompt = null;
+        if (window.celebrate) celebrate('small');
+      }
+    } catch (e) { }
+  };
+  var x = document.getElementById('installX');
+  if (x) x.onclick = function (e) {
+    e.stopPropagation();
+    S.installHidden = todayStr(); saveState();
+    var b = document.getElementById('installBar');
+    if (b) b.remove();
+  };
+};
+window.refreshInstallBar = function () {
+  // 홈 화면을 보고 있으면 다시 그려서 설치 배너를 띄운다
+  if (document.querySelector('.quest-card') && typeof renderHome === 'function') renderHome();
+};
+
 /* ---------- 🛡 스트릭 방패 (하루 빠져도 지켜줌) ---------- */
 window.applyShield = function () {
   S.shieldUsed = S.shieldUsed || {};
