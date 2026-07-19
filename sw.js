@@ -1,5 +1,5 @@
-/* 서비스 워커 — 오프라인에서도 공부할 수 있게 모든 파일을 캐시 */
-var CACHE = 'jeongi-study-v9';
+/* 서비스 워커 — 오프라인에서도 공부할 수 있게 모든 파일을 캐시 (안드로이드·아이폰 공통) */
+var CACHE = 'jeongi-study-v10';
 var FILES = [
   './',
   './index.html',
@@ -18,7 +18,14 @@ var FILES = [
   './journey.js',
   './manifest.json',
   './icon.svg',
-  './icon-maskable.svg'
+  './icon-maskable.svg',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-maskable-192.png',
+  './icon-maskable-512.png',
+  './apple-touch-icon.png',
+  './apple-touch-icon-167.png',
+  './apple-touch-icon-152.png'
 ];
 
 self.addEventListener('install', function (e) {
@@ -41,18 +48,26 @@ self.addEventListener('activate', function (e) {
   );
 });
 
-/* 네트워크 우선, 실패하면 캐시 (오프라인 대응) */
+/* 캐시 우선 + 뒤에서 갱신 (오프라인에서 확실히 뜨게 — iOS Safari 대응)
+   네트워크 우선은 지하철처럼 "연결은 되는데 안 되는" 상황에서 오래 멈추므로 캐시 우선으로 둔다. */
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
+  var url = new URL(e.request.url);
+  if (url.origin !== self.location.origin) return;   // 외부 요청은 건드리지 않음
+
   e.respondWith(
-    fetch(e.request).then(function (res) {
-      var copy = res.clone();
-      caches.open(CACHE).then(function (c) { c.put(e.request, copy).catch(function () { }); });
-      return res;
-    }).catch(function () {
-      return caches.match(e.request).then(function (r) {
-        return r || caches.match('./index.html');
+    caches.match(e.request).then(function (cached) {
+      var net = fetch(e.request).then(function (res) {
+        if (res && res.status === 200) {
+          var copy = res.clone();
+          caches.open(CACHE).then(function (c) { c.put(e.request, copy).catch(function () { }); });
+        }
+        return res;
+      }).catch(function () {
+        // 오프라인: 캐시에 없으면 첫 화면이라도 돌려준다
+        return cached || caches.match('./index.html');
       });
+      return cached || net;
     })
   );
 });

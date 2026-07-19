@@ -12,7 +12,11 @@
 <title>전기산업기사 필기 스터디</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<!-- 아이폰: apple-touch-icon은 PNG만 인식 (SVG 불가) -->
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
 <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
@@ -54,6 +58,13 @@
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('sw.js').catch(function () { });
+  });
+  // 새 버전이 준비되면 한 번만 자동 새로고침 (폰에서 최신 내용 바로 보이게)
+  var reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (reloaded) return;
+    reloaded = true;
+    location.reload();
   });
 }
 </script>
