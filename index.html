@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#3457d5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="전기산업기사">
+<meta name="description" content="전기산업기사 필기 - 기초부터 게임처럼 배우는 학습 앱">
+<title>전기산업기사 필기 스터디</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="style.css?v=9">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="logo" id="logoHome" title="홈으로">⚡ <span class="logo-full">전기산업기사</span> <span class="logo-sub">필기 스터디</span></div>
+    <nav id="mainNav">
+      <button class="nav-btn" data-nav="home">🏠 홈</button>
+      <button class="nav-btn" data-nav="journey">🗺 여정</button>
+      <button class="nav-btn" data-nav="games">🎮 게임</button>
+      <button class="nav-btn" data-nav="dojo">⚡ 계산 도장</button>
+      <button class="nav-btn" data-nav="codex">📐 공식</button>
+      <button class="nav-btn" data-nav="dict">📚 사전</button>
+      <button class="nav-btn" data-nav="notebook">📌 오답 <span class="nav-badge" id="wrongBadge"></span></button>
+      <button class="nav-btn" data-nav="stats">📊 성적</button>
+    </nav>
+  </div>
+</header>
+
+<main id="view"></main>
+
+<footer class="foot">
+  <p>이 앱은 사용자님만을 위해 만들어졌어요. 문제 추가나 수정이 필요하면 Claude에게 말해주세요. 💙</p>
+</footer>
+
+<script src="data.js"></script>
+<script src="lessons.js"></script>
+<script src="formulas.js"></script>
+<script src="dojo-data.js"></script>
+<script src="app.js"></script>
+<script src="lab.js"></script>
+<script src="boss.js"></script>
+<script src="codex.js"></script>
+<script src="dojo.js"></script>
+<script src="fun.js"></script>
+<script src="more.js"></script>
+<script src="journey.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () { });
+  });
+}
+</script>
+</body>
+</html>
