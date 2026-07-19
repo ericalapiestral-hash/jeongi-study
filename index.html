@@ -67,6 +67,13 @@ if ('serviceWorker' in navigator) {
     location.reload();
   });
 }
+// 저장소를 영구 모드로 요청 — iOS는 홈 화면에 추가된 웹앱에 한해 승인해준다.
+// 승인되면 저장공간이 부족해도 공부 기록이 먼저 지워지지 않는다.
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persisted().then(function (already) {
+    if (!already) navigator.storage.persist().catch(function () { });
+  }).catch(function () { });
+}
 </script>
 </body>
 </html>
