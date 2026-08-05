@@ -1,0 +1,102 @@
+name: APK 빌드
+
+on:
+  workflow_dispatch:        # 수동 실행 버튼
+  push:
+    branches: [ main ]
+    paths:
+      - 'twa/**'
+      - '.github/workflows/build-apk.yml'
+
+permissions:
+  contents: write            # 릴리스 업로드 + 키스토어 커밋
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      KS_PASS: jeongi2026
+      KEY_ALIAS: jeongi
+      KEYSTORE_PATH: ${{ github.workspace }}/twa/keystore.jks
+
+    steps:
+      - name: 소스 받기
+        uses: actions/checkout@v4
+
+      - name: 자바 17 설치
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 안드로이드 SDK 설치
+        uses: android-actions/setup-android@v3
+
+      - name: SDK 구성요소 설치
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: 서명 키스토어 준비 (없으면 생성)
+        run: |
+          if [ ! -f twa/keystore.jks ]; then
+            echo "키스토어가 없어 새로 생성합니다."
+            keytool -genkeypair -v \
+              -keystore twa/keystore.jks \
+              -alias "$KEY_ALIAS" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$KS_PASS" -keypass "$KS_PASS" \
+              -dname "CN=Jeongi Study, O=Personal, C=KR"
+            echo "NEW_KEYSTORE=1" >> "$GITHUB_ENV"
+          else
+            echo "기존 키스토어를 사용합니다."
+          fi
+
+      - name: 새 키스토어를 저장소에 보관
+        if: env.NEW_KEYSTORE == '1'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -f twa/keystore.jks
+          git commit -m "APK 서명 키스토어 생성 (자동)"
+          git push
+
+      - name: 서명 지문(SHA-256) 출력
+        run: |
+          FP=$(keytool -list -v -keystore twa/keystore.jks -alias "$KEY_ALIAS" -storepass "$KS_PASS" | grep 'SHA256:' | sed 's/.*SHA256: //' | tr -d ' ')
+          echo "SHA256_FINGERPRINT=$FP" >> "$GITHUB_ENV"
+          echo "## 📱 APK 서명 지문 (SHA-256)" >> "$GITHUB_STEP_SUMMARY"
+          echo '주소창 없는 전체화면으로 만들려면 이 값이 필요해요:' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "$FP" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Gradle 래퍼 생성
+        working-directory: twa
+        run: gradle wrapper --gradle-version 8.9
+
+      - name: APK 빌드
+        working-directory: twa
+        run: ./gradlew assembleRelease -PappVersionCode=${{ github.run_number }} -PappVersionName=1.0.${{ github.run_number }} --no-daemon --stacktrace
+
+      - name: APK 이름 정리
+        run: |
+          mkdir -p out
+          cp twa/app/build/outputs/apk/release/app-release.apk "out/전기산업기사-스터디.apk"
+          ls -la out
+
+      - name: 릴리스로 배포
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-v${{ github.run_number }}
+          name: 전기산업기사 스터디 앱 (설치용 APK)
+          body: |
+            📱 **설치 방법**: 아래 `전기산업기사-스터디.apk` 를 폰에서 다운로드 → 열기 → 설치
+            (처음엔 "알 수 없는 출처 허용"이 뜰 수 있어요. 허용하면 돼요.)
+
+            🔄 앱 내용은 자동으로 최신 상태로 업데이트됩니다. 이 APK는 한 번만 설치하면 돼요.
+
+            서명 지문(SHA-256): `${{ env.SHA256_FINGERPRINT }}`
+          files: out/전기산업기사-스터디.apk
