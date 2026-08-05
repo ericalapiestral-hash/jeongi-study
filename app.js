@@ -597,6 +597,7 @@ function renderHome() {
     '</div>' +
     '</div>' +
 
+    (window.crunchBannerHtml ? window.crunchBannerHtml() : '') +
     (window.installBarHtml ? window.installBarHtml() : '') +
     ((function () {
       var ill = Object.keys(S.illusion || {}).length;
@@ -647,6 +648,7 @@ function renderHome() {
   $('#btnDojo').onclick = function () { if (window.renderDojoHub) window.renderDojoHub(); };
   $('#btnGames').onclick = function () { if (window.renderGames) window.renderGames(); };
   if (window.bindInstallBar) window.bindInstallBar();
+  var cbn = $('#crunchBanner'); if (cbn) cbn.onclick = function () { if (window.renderCrunch) window.renderCrunch(); };
   var wg = $('#wrongGauge'); if (wg) wg.onclick = function () { startSession('review'); };
   var ib = $('#illusionBar'); if (ib) ib.onclick = function () { startIllusionSession(); };
   $('#btnReport').onclick = function () { if (window.renderReport) window.renderReport(); };
@@ -1393,6 +1395,7 @@ document.querySelectorAll('.nav-btn').forEach(function (b) {
     if (!confirmLeave()) return;
     var to = b.getAttribute('data-nav');
     if (to === 'home') renderHome();
+    else if (to === 'crunch') { if (window.renderCrunch) window.renderCrunch(); }
     else if (to === 'journey') { if (window.renderJourney) window.renderJourney(); }
     else if (to === 'games') { if (window.renderGames) window.renderGames(); }
     else if (to === 'dojo') { if (window.renderDojoHub) window.renderDojoHub(); }

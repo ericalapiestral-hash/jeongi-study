@@ -714,6 +714,52 @@ main { flex: 1; width: 100%; max-width: 880px; margin: 0 auto; padding: 24px 20p
 .rad-fix { margin-top: 12px; background: var(--warn-soft); border-radius: 12px; padding: 12px 14px; font-size: .9rem; color: var(--warn); }
 .rad-fix b { color: var(--ink); }
 
+/* ---------- 벼락치기 ---------- */
+.crunch-banner {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: linear-gradient(135deg, #e4574a, #d43f7a); color: #fff;
+  border-radius: 16px; padding: 16px 18px; margin-bottom: 14px; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(212,69,58,.35); animation: cbpulse 2s ease-in-out infinite;
+}
+@keyframes cbpulse { 0%,100% { box-shadow: 0 6px 20px rgba(212,69,58,.35); } 50% { box-shadow: 0 6px 28px rgba(212,69,58,.6); } }
+.cb-dday { font-size: 1.5rem; font-weight: 900; flex-shrink: 0; }
+.cb-text { flex: 1; min-width: 150px; font-size: .95rem; line-height: 1.5; }
+.cb-text span { font-size: .82rem; opacity: .92; }
+.cb-go { background: #fff; color: #d43f7a; border-radius: 999px; padding: 9px 16px; font-weight: 800; font-size: .9rem; flex-shrink: 0; }
+
+.crunch-hero { text-align: center; background: linear-gradient(160deg, #fff, #fff2f0); border: 1px solid #f5cdc8; }
+.crunch-h1 { font-size: 1.4rem; font-weight: 900; color: var(--bad); }
+.crunch-dday { margin-top: 10px; font-size: 1.1rem; font-weight: 800; color: var(--ink); }
+.crunch-dday b { color: var(--bad); font-size: 1.3rem; }
+.crunch-dday.no-date { font-size: .92rem; font-weight: 600; color: var(--ink-soft); cursor: pointer; background: var(--bg); border-radius: 12px; padding: 12px 14px; line-height: 1.6; }
+.crunch-intro { margin-top: 12px; font-size: .95rem; color: var(--ink-soft); line-height: 1.7; }
+
+.crunch-today { border-left: 5px solid var(--bad); }
+.ct-badge { display: inline-block; background: var(--bad); color: #fff; font-weight: 800; font-size: .78rem; padding: 4px 12px; border-radius: 999px; }
+.ct-title { font-size: 1.15rem; font-weight: 800; margin-top: 8px; }
+.ct-sub { font-size: .92rem; color: var(--ink-soft); margin-top: 4px; line-height: 1.6; }
+.ct-acts { display: grid; gap: 8px; margin-top: 14px; }
+.crunch-act {
+  font-family: inherit; font-size: .98rem; font-weight: 700; text-align: left; cursor: pointer;
+  background: var(--brand-soft); color: var(--brand-deep); border: none; border-radius: 12px; padding: 14px 16px;
+  transition: all .12s;
+}
+.crunch-act:hover { background: var(--brand); color: #fff; }
+
+.strat-row { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; font-size: .93rem; line-height: 1.6; }
+.strat-medal { font-size: 1.3rem; flex-shrink: 0; }
+.strat-row.gold { background: #fffceb; border-radius: 10px; padding: 10px 12px; margin-left: -4px; }
+.strat-row.shield { background: var(--good-soft); border-radius: 10px; padding: 10px 12px; margin-left: -4px; }
+.strat-sum { margin-top: 14px; background: var(--brand-soft); border-radius: 12px; padding: 12px 14px; font-size: .92rem; color: var(--brand-deep); font-weight: 600; line-height: 1.65; }
+
+.plan-row { display: flex; gap: 12px; align-items: center; padding: 9px 4px; border-bottom: 1px solid var(--line); font-size: .93rem; }
+.plan-row:last-child { border-bottom: none; }
+.plan-row.now { background: var(--warn-soft); border-radius: 8px; padding-left: 8px; }
+.plan-d { font-weight: 800; color: var(--bad); min-width: 44px; }
+.plan-t b { color: var(--bad); }
+
+.exam-strat .es-row { margin-top: 11px; font-size: .93rem; line-height: 1.7; }
+
 /* ---------- 앱 설치 배너 ---------- */
 .install-bar {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
