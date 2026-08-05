@@ -84,7 +84,7 @@ jobs:
       - name: APK 이름 정리
         run: |
           mkdir -p out
-          cp twa/app/build/outputs/apk/release/app-release.apk "out/전기산업기사-스터디.apk"
+          cp twa/app/build/outputs/apk/release/app-release.apk "out/jeongi-study.apk"
           ls -la out
 
       - name: 릴리스로 배포
@@ -99,4 +99,4 @@ jobs:
             🔄 앱 내용은 자동으로 최신 상태로 업데이트됩니다. 이 APK는 한 번만 설치하면 돼요.
 
             서명 지문(SHA-256): `${{ env.SHA256_FINGERPRINT }}`
-          files: out/전기산업기사-스터디.apk
+          files: out/jeongi-study.apk
