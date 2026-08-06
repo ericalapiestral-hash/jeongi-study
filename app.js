@@ -492,8 +492,8 @@ function askConfidence(pickIdx) {
 
 function answer(pickIdx, conf) {
   if (session.locked) return;
-  // 확신도를 아직 안 물었으면 먼저 물어보기 (모르겠어요·모의고사는 건너뜀)
-  if (!conf && pickIdx !== -1 && session.mode !== 'exam' && !session.pendingPick0) {
+  // 확신도를 아직 안 물었으면 먼저 물어보기 (모르겠어요·모의고사·간단모드는 건너뜀)
+  if (!conf && pickIdx !== -1 && session.mode !== 'exam' && !S.simpleMode && !session.pendingPick0) {
     session.pendingPick0 = true;
     askConfidence(pickIdx);
     return;
@@ -584,6 +584,12 @@ function renderHome() {
     '<span class="xp-txt">' + (li.max ? 'MAX 레벨!' : S.xp + ' XP · 다음 레벨까지 ' + (li.span - li.cur) + ' XP') + '</span></div>';
 
   v.innerHTML =
+    '<div class="just-start" id="justStart">' +
+    '<div class="js-title">▶ 여기부터 시작하세요</div>' +
+    '<div class="js-sub">전기설비기술기준 · 외우기만 하면 되는 과목이에요<br>계산 없어요. 틀려도 괜찮아요 — 틀리면서 배우는 거예요</div>' +
+    '<div class="js-go">문제 풀기 시작 ▶</div>' +
+    '</div>' +
+
     '<div class="card hero">' +
     '<h1>오늘도 잘 왔어요! 👋</h1>' +
     '<p class="cheer">' + esc(todayCheer()) + '</p>' +
@@ -647,6 +653,12 @@ function renderHome() {
   $('#btnBoss').onclick = function () { if (window.renderBossHub) window.renderBossHub(); };
   $('#btnDojo').onclick = function () { if (window.renderDojoHub) window.renderDojoHub(); };
   $('#btnGames').onclick = function () { if (window.renderGames) window.renderGames(); };
+  var js = $('#justStart');
+  if (js) js.onclick = function () {
+    S.simpleMode = true;          // 확신도 묻지 않고 바로 채점
+    saveState();
+    startSession('subject', 'kec');
+  };
   if (window.bindInstallBar) window.bindInstallBar();
   var cbn = $('#crunchBanner'); if (cbn) cbn.onclick = function () { if (window.renderCrunch) window.renderCrunch(); };
   var wg = $('#wrongGauge'); if (wg) wg.onclick = function () { startSession('review'); };

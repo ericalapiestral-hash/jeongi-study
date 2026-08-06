@@ -714,6 +714,22 @@ main { flex: 1; width: 100%; max-width: 880px; margin: 0 auto; padding: 24px 20p
 .rad-fix { margin-top: 12px; background: var(--warn-soft); border-radius: 12px; padding: 12px 14px; font-size: .9rem; color: var(--warn); }
 .rad-fix b { color: var(--ink); }
 
+/* ---------- 바로 시작 버튼 ---------- */
+.just-start {
+  background: linear-gradient(135deg, #14915f, #0d7a4e); color: #fff;
+  border-radius: 18px; padding: 24px 20px; margin-bottom: 16px;
+  text-align: center; cursor: pointer; transition: transform .12s;
+  box-shadow: 0 6px 22px rgba(20,145,95,.35);
+}
+.just-start:active { transform: scale(.98); }
+.js-title { font-size: 1.35rem; font-weight: 900; }
+.js-sub { font-size: .9rem; opacity: .95; margin-top: 8px; line-height: 1.65; }
+.js-go {
+  background: #fff; color: #0d7a4e; border-radius: 999px;
+  padding: 13px 24px; font-weight: 800; font-size: 1.02rem;
+  display: inline-block; margin-top: 16px;
+}
+
 /* ---------- 벼락치기 ---------- */
 .crunch-banner {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
