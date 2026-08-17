@@ -1531,17 +1531,57 @@ function setMenu(open) {
   if (open) {
     p.hidden = false; sc.hidden = false;
     // 다음 프레임에 클래스를 붙여야 열림 전환이 실제로 재생된다
-    requestAnimationFrame(function () { p.classList.add('on'); sc.classList.add('on'); });
+    requestAnimationFrame(function () {
+      p.classList.add('on'); sc.classList.add('on');
+      var f = p.querySelector('.menu-item');
+      if (f) f.focus();
+    });
     document.body.style.overflow = 'hidden';
+    if (window.uiSound) uiSound('open');
   } else {
     p.classList.remove('on'); sc.classList.remove('on');
     document.body.style.overflow = '';
     setTimeout(function () { if (!menuOpen) { p.hidden = true; sc.hidden = true; } }, 260);
+    b.focus();   // 포커스를 메뉴 버튼으로 돌려준다
+    if (window.uiSound) uiSound('close');
   }
 }
 var mb = $('#menuBtn'); if (mb) mb.onclick = function () { setMenu(!menuOpen); };
 var msc = $('#menuScrim'); if (msc) msc.onclick = function () { setMenu(false); };
-document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && menuOpen) setMenu(false); });
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && menuOpen) { setMenu(false); return; }
+  // 서랍이 열려 있으면 탭 순서를 그 안에 가둔다 (뒤에 있는 화면으로 포커스가 새지 않게)
+  if (!menuOpen || e.key !== 'Tab') return;
+  var f = $('#menuPanel').querySelectorAll('button');
+  if (!f.length) return;
+  var first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+/* 짧은 UI 효과음 — beep은 boss.js가 정의하고 S.mute를 스스로 확인한다 */
+function uiSound(kind) {
+  if (typeof beep !== 'function') return;
+  if (typeof actx === 'function') actx();
+  if (kind === 'open') { beep(520, 0.07, 'sine', 0.10); beep(700, 0.07, 'sine', 0.08, 0.05); }
+  else if (kind === 'close') { beep(430, 0.07, 'sine', 0.08); }
+  else if (kind === 'select') { beep(660, 0.06, 'triangle', 0.10); }
+}
+window.uiSound = uiSound;
+
+/* 소리 끄기 — 지금까지는 보스 전투 안에서만 끌 수 있었다 */
+function paintMuteBtn() {
+  var b = $('#muteBtn');
+  if (b) b.textContent = S.mute ? '소리 켜기' : '소리 끄기';
+}
+var muteBtn = $('#muteBtn');
+if (muteBtn) {
+  muteBtn.onclick = function () {
+    S.mute = !S.mute; saveState(); paintMuteBtn();
+    if (!S.mute) uiSound('select');
+  };
+  paintMuteBtn();
+}
 
 document.querySelectorAll('.menu-item').forEach(function (b) {
   b.onclick = function () {

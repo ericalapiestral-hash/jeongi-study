@@ -239,6 +239,7 @@ window.renderRogue = function () {
   });
   var rs = $('#rgResume'); if (rs) rs.onclick = window.rogueResume;
   if (window.updateBadge) updateBadge();
+  rgMakeFocusable();
   window.scrollTo(0, 0);
 };
 
@@ -305,6 +306,7 @@ function renderRogueMap() {
   $('#rgQuit').onclick = function () {
     if (confirm('탐험을 그만둘까요? 지금까지 푼 문제 기록은 그대로 남아요.')) { S.rogue = null; rgSave(); window.renderRogue(); }
   };
+  rgMakeFocusable();
   window.scrollTo(0, 0);
 }
 
@@ -354,6 +356,7 @@ function rgShowDeck() {
     }).join('') + '</div>' : '') +
     '<button class="btn btn-primary" id="rgBack">돌아가기</button>';
   $('#rgBack').onclick = function () { renderRogueMap(); };
+  rgMakeFocusable();
   window.scrollTo(0, 0);
 }
 
@@ -385,6 +388,7 @@ function renderRogueLesson() {
     if (window.startLesson) window.startLesson(r.zone, nd.ui, false, true);
   };
   $('#rgSkipLesson').onclick = function () { rgNextFloor(); };
+  rgMakeFocusable();
   window.scrollTo(0, 0);
 }
 
@@ -440,6 +444,7 @@ function rgStartTurn() {
   b.killed = null; b.concept = false; b.bonus = 0;
   b.shield = false; b.surge = false; b.again = false; b.log = '';
   b.energy = 2 + (rgHasRelic('battery') ? 1 : 0);
+  b.energyMax = b.energy;   // 핍 칸 수는 턴 시작값으로 고정 (써도 빈 칸이 남아야 한다)
   rgDrawTo(3 + (rgHasRelic('magnet') ? 1 : 0));
   if (b.turn === 1 && rgHasRelic('ruler')) rgApplyCut();
   rgSave();
@@ -452,6 +457,19 @@ function rgApplyCut() {
   var wrong = [];
   for (var i = 0; i < g.q.choices.length; i++) if (i !== g.q.answer) wrong.push(i);
   b.killed = shuffle(wrong).slice(0, 2);
+}
+
+/* 카드를 쓰면 먼저 카드가 떠오르며 사라지고, 그 다음에 효과가 들어간다 */
+function rgPlayCardAnimated(handIdx, el) {
+  var r = rgRun(), b = r.battle;
+  if (!b || b.locked || b.playing) return;
+  var c = RCARDS[r.hand[handIdx]];
+  if (!c) return;
+  if (b.energy < c.cost) { toast('에너지가 모자라요'); if (el) { el.classList.add('nope'); setTimeout(function () { el.classList.remove('nope'); }, 340); } return; }
+  b.playing = true;
+  if (typeof beep === 'function') { beep(600, 0.06, 'triangle', 0.11); beep(880, 0.07, 'triangle', 0.09, 0.04); }
+  if (el) el.classList.add('playing');
+  setTimeout(function () { b.playing = false; rgPlayCard(handIdx); }, 170);
 }
 
 function rgPlayCard(handIdx) {
@@ -476,7 +494,7 @@ function rgPlayCard(handIdx) {
     b.log = '🪝 접지 — 쉬운 문제로 바꿨어요';
   }
   else if (id === 'again') { b.again = true; b.log = '🔁 재도전 — 틀리면 한 번 더 만나요'; }
-  else if (id === 'charge') { b.energy += 2; b.log = '🔋 에너지 +2'; }
+  else if (id === 'charge') { b.energy += 2; b.energyMax = Math.max(b.energyMax || 0, b.energy); b.log = '🔋 에너지 +2'; }
 
   b.energy -= c.cost;
   r.hand.splice(handIdx, 1);
@@ -580,8 +598,17 @@ function renderRogueBattle() {
     '<div class="re-hp">' + b.enemy.hp + ' / ' + b.enemy.maxHp + '</div>' +
     '</div></div>' +
 
-    '<div class="rg-energy">⚡ 에너지 <b>' + b.energy + '</b>' +
-    '<span class="rg-pile">뽑을 카드 ' + r.draw.length + ' · 버린 카드 ' + r.discard.length + '</span></div>' +
+    '<div class="rg-energy">' +
+    '<span class="rg-en-label">에너지</span>' +
+    '<span class="rg-pips">' + (function () {
+      var s = '', max = Math.max(b.energyMax || 2, b.energy);
+      for (var i = 0; i < max; i++) s += '<i class="rg-pip' + (i < b.energy ? '' : ' off') + '"></i>';
+      return s;
+    })() + '</span>' +
+    '<span class="rg-piles">' +
+    '<span class="rg-pile" title="뽑을 카드"><i></i>' + r.draw.length + '</span>' +
+    '<span class="rg-pile used" title="버린 카드"><i></i>' + r.discard.length + '</span>' +
+    '</span></div>' +
     '<div class="rg-hand">' + handHtml + '</div>' +
     (b.log ? '<div class="rg-log">' + esc(b.log) + '</div>' : '') +
 
@@ -600,8 +627,9 @@ function renderRogueBattle() {
       bt.onclick = function () { rgAnswer(parseInt(bt.getAttribute('data-rpick'), 10)); };
     });
     document.querySelectorAll('[data-hand]').forEach(function (el) {
-      el.onclick = function () { rgPlayCard(parseInt(el.getAttribute('data-hand'), 10)); };
+      el.onclick = function () { rgPlayCardAnimated(parseInt(el.getAttribute('data-hand'), 10), el); };
     });
+    rgMakeFocusable();
   } else {
     $('#rgNext').onclick = rgTurnEnd;
     var ep = document.querySelector('.rg-enemy');
@@ -620,8 +648,29 @@ function renderRogueBattle() {
     }
   }
   if (window.updateBadge) updateBadge();
+  rgMakeFocusable();
   window.scrollTo(0, 0);
 }
+
+/* ---------- 키보드 조작 ----------
+   카드·노드·구역은 <div>라서 그냥 두면 탭으로 갈 수 없다.
+   버튼 역할을 부여하고 Enter/Space로도 눌리게 한다. */
+var RG_CLICKABLE = '[data-hand],[data-node],[data-zone],[data-reward],[data-relic],[data-buy],[data-trim]';
+function rgMakeFocusable() {
+  document.querySelectorAll(RG_CLICKABLE).forEach(function (el) {
+    if (el.tagName === 'BUTTON') return;
+    el.setAttribute('role', 'button');
+    if (!el.hasAttribute('tabindex')) el.tabIndex = 0;
+  });
+}
+window.rgMakeFocusable = rgMakeFocusable;
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  var el = document.activeElement;
+  if (!el || !el.matches || !el.matches(RG_CLICKABLE)) return;
+  e.preventDefault();
+  el.click();
+});
 
 /* ---------- 전투 연출 ---------- */
 /* 피해 숫자를 해당 패널 위에 띄운다 (패널 기준 절대 위치라 스크롤을 따라간다) */
@@ -688,6 +737,7 @@ function renderRogueReward(headline) {
     };
   });
   $('#rgSkip').onclick = function () { r.rewardOffer = null; rgNextFloor(); };
+  rgMakeFocusable();
   window.scrollTo(0, 0);
 }
 
@@ -717,6 +767,7 @@ function rgGrantRelic(headline) {
       rgNextFloor();
     };
   });
+  rgMakeFocusable();
   window.scrollTo(0, 0);
 }
 
@@ -735,6 +786,7 @@ function renderRogueRest() {
   $('#rgHeal').onclick = function () { r.hp = Math.min(r.maxHp, r.hp + 3); toast('❤️ 체력을 회복했어요'); rgNextFloor(); };
   $('#rgUp').onclick = function () { r.maxHp++; r.hp++; toast('🔧 최대 체력이 늘었어요'); rgNextFloor(); };
   $('#rgTrim').onclick = rgTrimDeck;
+  rgMakeFocusable();
   window.scrollTo(0, 0);
 }
 
@@ -757,6 +809,7 @@ function rgTrimDeck() {
     };
   });
   $('#rgTrimCancel').onclick = renderRogueRest;
+  rgMakeFocusable();
   window.scrollTo(0, 0);
 }
 
@@ -809,6 +862,7 @@ function renderRogueShop() {
     };
   });
   $('#rgLeaveShop').onclick = function () { r.shopStock = null; rgNextFloor(); };
+  rgMakeFocusable();
   window.scrollTo(0, 0);
 }
 
@@ -874,5 +928,6 @@ function rgEndRun(win) {
     '</div></div>';
   $('#rgAgain').onclick = function () { window.renderRogue(); };
   $('#rgHome').onclick = function () { renderHome(); };
+  rgMakeFocusable();
   window.scrollTo(0, 0);
 }
