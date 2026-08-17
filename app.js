@@ -27,7 +27,9 @@ function defaultState() {
     onboarded: false,
     formulaLearned: {}, // "subjKey-idx" -> true 공식 수집
     dq: {},         // 'YYYY-MM-DD' -> 일일 퀘스트 진행 카운터
-    ghost: {}       // 코스키 -> {times,durMs,correct,total,date} 어제의 나 기록
+    ghost: {},      // 코스키 -> {times,durMs,correct,total,date} 어제의 나 기록
+    rogue: null,    // 진행 중인 로그라이크 런 (없으면 null)
+    rogueStats: { runs: 0, clears: 0, bestFloor: 0 }
   };
 }
 function loadState() {
@@ -645,7 +647,9 @@ function renderHome() {
     '<div class="mode-grid mode-main">' +
     '<button class="btn btn-primary btn-big" id="btnRandom">▶ 오늘의 공부 시작<br><small style="font-weight:500">복습 우선 + 새 문제 ' + SET_SIZE + '개</small></button>' +
     '<button class="btn btn-ghost btn-big" id="btnJourney">🗺 여정 이어서<br><small style="font-weight:500">처음부터 순서대로 배우기</small></button>' +
-    '<button class="btn btn-boss btn-big" id="btnGames">🎮 미니 게임<br><small style="font-weight:500">짧게 한 판씩 놀면서</small></button>' +
+    '<button class="btn btn-boss btn-big" id="btnRogue">🎴 전력망 탐험' +
+    (S.rogue ? ' <small>(' + S.rogue.floor + '층 진행 중)</small>' : '') +
+    '<br><small style="font-weight:500">카드를 모아 8개 층을 오르는 모험</small></button>' +
     '</div>' +
 
     gardenBlock +
@@ -660,6 +664,7 @@ function renderHome() {
     '<button class="btn btn-ghost btn-big" id="btnCodex">📐 공식 도감<br><small style="font-weight:500">공식을 수집하며 배우기</small></button>' +
     '<button class="btn btn-ghost btn-big" id="btnLab">🧪 전기 실험실<br><small style="font-weight:500">만지면서 이해하는 물리</small></button>' +
     '<button class="btn btn-ghost btn-big" id="btnExam">📝 미니 모의고사<br><small style="font-weight:500">과목별 5문제, 합격 판정</small></button>' +
+    '<button class="btn btn-boss btn-big" id="btnGames">🎮 미니 게임<br><small style="font-weight:500">등반·소거법·버그헌트·빈칸</small></button>' +
     '</div>' +
     (window.journeyHeroHtml ? window.journeyHeroHtml() : '') +
 
@@ -683,6 +688,7 @@ function renderHome() {
 
   $('#btnRandom').onclick = function () { startSession('random'); };
   $('#btnJourney').onclick = function () { if (window.renderJourney) window.renderJourney(); };
+  $('#btnRogue').onclick = function () { if (window.renderRogue) window.renderRogue(); };
   $('#btnExam').onclick = function () { startSession('exam'); };
   $('#btnReview').onclick = function () { startSession('review'); };
   $('#btnLab').onclick = function () { if (window.renderLab) window.renderLab(); };
@@ -1482,6 +1488,7 @@ document.querySelectorAll('.nav-btn').forEach(function (b) {
     if (to === 'home') renderHome();
     else if (to === 'crunch') { if (window.renderCrunch) window.renderCrunch(); }
     else if (to === 'journey') { if (window.renderJourney) window.renderJourney(); }
+    else if (to === 'rogue') { if (window.renderRogue) window.renderRogue(); }
     else if (to === 'games') { if (window.renderGames) window.renderGames(); }
     else if (to === 'dojo') { if (window.renderDojoHub) window.renderDojoHub(); }
     else if (to === 'codex') { if (window.renderCodex) window.renderCodex(); }
