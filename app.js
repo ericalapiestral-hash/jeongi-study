@@ -869,12 +869,22 @@ function renderQuiz(pickedIdx) {
     }
   }
 
+  // 🌱 처음 보는 개념(배운 적도, 푼 적도 없음)은 문제를 던지기 전에 개념부터 보여준다.
+  // "아무것도 모르는 상태에서 벅찬 문제만 나온다"를 막는 장치 — 여정의 배우고→풀기 순서를
+  // 모든 출제 경로에 적용한 것. 모의고사만 예외(실력을 재는 자리이므로).
+  // 답을 내면 attempts 가 생겨 isNew 가 저절로 꺼진다 (뒤에는 해설·개념이 verdict 에 뜬다).
+  var isNew = !isRetry && session.mode !== 'exam' &&
+    lastSeenOfUnit(item.subjKey, item.ui) === 0 &&
+    !((S.lessonProg[unitKeyOf(item.subjKey, item.ui)] || {}).done);
+
   var conceptTop = isRetry ?
-    '<div class="concept-box"><b class="cb-title">💡 아까 틀렸던 개념이에요 — 읽고 다시 풀어봐요</b>' + esc(g.unit.concept) + '</div>' : '';
+    '<div class="concept-box"><b class="cb-title">💡 아까 틀렸던 개념이에요 — 읽고 다시 풀어봐요</b>' + esc(g.unit.concept) + '</div>' :
+    (isNew ?
+      '<div class="concept-box"><b class="cb-title">🌱 처음 보는 개념이에요 — 먼저 읽고 풀면 돼요. 몰라서 틀리는 건 당연해요</b>' + esc(g.unit.concept) + '</div>' : '');
   // 💡 힌트: 1단계 선택지 2개 소거 → 2단계 개념 먼저 보기.
-  // 복습 문제는 개념이 이미 위에 떠 있으므로 1단계까지만, 모의고사는 없음.
+  // 복습·처음 보는 문제는 개념이 이미 위에 떠 있으므로 1단계까지만, 모의고사는 없음.
   var hintLv = session.hintLv || 0;
-  var maxHint = isRetry ? 1 : 2;
+  var maxHint = (isRetry || isNew) ? 1 : 2;
   var hintBox = (!answered && hintLv >= 2) ?
     '<div class="hint-box"><b class="cb-title">💡 힌트 — ' + esc(g.unit.topic) + '</b>' + esc(g.unit.concept) + '</div>' : '';
   var hintBtn = (answered || session.mode === 'exam' || hintLv >= maxHint) ? '' :

@@ -268,7 +268,14 @@ function renderRogueMap() {
   var kinds = FLOOR_PLAN[r.floor - 1];
   // 같은 층에서는 선택지를 고정해둔다 (새로고침해도 안 바뀌게)
   if (!r.offers || r.offers.floor !== r.floor) {
-    r.offers = { floor: r.floor, list: kinds.map(function (k) { return rgMakeNode(k); }) };
+    var list = kinds.map(function (k) { return rgMakeNode(k); });
+    // 아무것도 안 배운 구역이면 설계도실을 앞에 놓고 "여기부터"를 붙인다 —
+    // 모르는 상태로 전투부터 들어가 지치는 걸 막는다
+    if (rgZoneFresh(r.zone)) {
+      list.sort(function (a, b) { return (a.type === 'lesson' ? 0 : 1) - (b.type === 'lesson' ? 0 : 1); });
+      list.forEach(function (nd) { if (nd.type === 'lesson') nd.rec = true; });
+    }
+    r.offers = { floor: r.floor, list: list };
     rgSave();
   }
 
@@ -284,7 +291,8 @@ function renderRogueMap() {
         return '<div class="rg-pin now" data-node="' + k + '" title="' + esc(info.name + ' — ' + info.desc) + '">' +
           '<span class="rp-ic">' + (nd.enemy ? nd.enemy.icon : info.icon) + '</span>' +
           '<span class="rp-label">' + esc(info.name) +
-          (nd.enemy ? '<em>HP ' + nd.enemy.hp + '</em>' : '') + '</span></div>';
+          (nd.enemy ? '<em>HP ' + nd.enemy.hp + '</em>' : '') +
+          (nd.rec ? '<i class="rp-rec">처음이면 여기부터</i>' : '') + '</span></div>';
       }).join('');
     } else if (state === 'past') {
       var taken = r.path[i];
@@ -424,11 +432,33 @@ function rgQueueFor(subjKey) {
   if (!subj) return [];
   var pool = [];
   subj.units.forEach(function (u, ui) {
-    pool.push({ subjKey: subjKey, ui: ui, pr: priorityOfUnit(subjKey, ui), seen: lastSeenOfUnit(subjKey, ui) });
+    pool.push({
+      subjKey: subjKey, ui: ui,
+      pr: priorityOfUnit(subjKey, ui), seen: lastSeenOfUnit(subjKey, ui),
+      taught: (S.lessonProg[unitKeyOf(subjKey, ui)] || {}).done ? 0 : 1
+    });
   });
   pool = shuffle(pool);
-  pool.sort(function (a, b) { return a.pr - b.pr || a.seen - b.seen; });
+  // 복습 우선(pr)은 유지하되, 한 번도 안 푼 유닛끼리는 "레슨으로 배운 것 먼저,
+  // 그 다음은 커리큘럼 순서"로 낸다. 아무것도 모르는 상태에서 뒤쪽의 어려운 개념이
+  // 먼저 튀어나오지 않게 하는 장치다 — 무작위로 돌리지 말 것.
+  pool.sort(function (a, b) {
+    if (a.pr !== b.pr) return a.pr - b.pr;
+    if (a.pr === 1) return a.taught - b.taught || a.ui - b.ui;
+    return a.seen - b.seen;
+  });
   return pool.map(function (p) { return { subjKey: p.subjKey, ui: p.ui }; });
+}
+
+/* 이 구역에서 아직 아무것도 안 배웠고 안 풀었는가 */
+function rgZoneFresh(zoneKey) {
+  var subj = subjectByKey(zoneKey);
+  if (!subj) return false;
+  for (var ui = 0; ui < subj.units.length; ui++) {
+    if (lastSeenOfUnit(zoneKey, ui) > 0) return false;
+    if ((S.lessonProg[unitKeyOf(zoneKey, ui)] || {}).done) return false;
+  }
+  return true;
 }
 
 function rgStartBattle(enemy) {
@@ -635,7 +665,15 @@ function renderRogueBattle() {
 
     '<div class="card">' +
     '<span class="topic-chip">' + esc(g.subj.name) + ' · ' + esc(g.unit.topic) + '</span>' +
-    (b.concept && !answered ? '<div class="concept-box"><b class="cb-title">📖 복기 — ' + esc(g.unit.topic) + '</b>' + esc(g.unit.concept) + '</div>' : '') +
+    ((function () {
+      if (answered) return '';
+      // 복기 카드를 썼거나, 처음 보는 개념이면 문제 위에 개념부터 보여준다.
+      // 배운 적 없는 문제로 얻어맞는 건 게임이 아니라 그냥 고문이다.
+      if (b.concept) return '<div class="concept-box"><b class="cb-title">📖 복기 — ' + esc(g.unit.topic) + '</b>' + esc(g.unit.concept) + '</div>';
+      var isNewB = lastSeenOfUnit(b.q.subjKey, b.q.ui) === 0 &&
+        !((S.lessonProg[unitKeyOf(b.q.subjKey, b.q.ui)] || {}).done);
+      return isNewB ? '<div class="concept-box"><b class="cb-title">🌱 처음 보는 개념이에요 — 먼저 읽고 풀면 돼요</b>' + esc(g.unit.concept) + '</div>' : '';
+    })()) +
     '<div class="qtext">' + esc(g.q.q) + '</div>' +
     '<div class="choices">' + choices + '</div>' +
     verdict +

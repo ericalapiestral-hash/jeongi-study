@@ -2205,3 +2205,10 @@ main, .topbar, .menu-panel, .menu-scrim { position: relative; z-index: 2; }
 b, strong { color: #fffaf0; }
 html[data-theme="light"] b, html[data-theme="light"] strong { color: #0f1420; }
 .qtext, .s-body, .explain, .l-steps { letter-spacing: 0; }
+
+/* "처음이면 여기부터" 배지 — 안 배운 구역의 설계도실에 붙는다 */
+.rp-rec {
+  font-style: normal; font-size: .68rem; font-weight: 700;
+  color: var(--good-ink); background: var(--good-soft);
+  border: 1px solid var(--good-line); padding: 1px 8px; border-radius: 99px;
+}
