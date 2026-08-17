@@ -6,41 +6,42 @@
    토큰 의미는 그대로 두고 값만 뒤집었으므로, 새 컴포넌트도 토큰만 쓰면 두 테마가 같이 따라온다.
    *-ink = 옅은 배경(--*-soft) 위에 올리는 글자색. *-line = 그 위의 테두리색. */
 :root {
-  --bg: #0a0d16;
-  --bg-2: #05070d;
-  --card: #141a29;
-  --card-2: #1b2233;
-  --ink: #eaeffb;
-  --ink-soft: #a6b2cc;
-  --ink-faint: #6d7a97;
-  --line: #27314a;
+  /* Slay the Spire 계열: 따뜻한 어둠 + 양피지색 글자 + 낡은 금색 강조 */
+  --bg: #17120f;
+  --bg-2: #0d0a08;
+  --card: #241d18;
+  --card-2: #2e251e;
+  --ink: #f0e6d2;
+  --ink-soft: #bfae94;
+  --ink-faint: #96866f;
+  --line: #453729;
 
-  --brand: #4d7cff;
-  --brand-soft: #172344;
-  --brand-deep: #9db8ff;     /* 다크 위 글자용 밝은 파랑 */
-  --brand-line: #2c3f6e;
-  --brand-glow: rgba(77, 124, 255, .45);
+  --brand: #c8a45c;
+  --brand-soft: #2c2318;
+  --brand-deep: #e6c887;
+  --brand-line: #5c4826;
+  --brand-glow: rgba(200, 164, 92, .38);
 
-  --good: #2ee08a;
-  --good-soft: #0f2a1f;
-  --good-ink: #6df0b6;
-  --good-line: #1f5540;
+  --good: #6fbf5b;
+  --good-soft: #1b2716;
+  --good-ink: #a3dd93;
+  --good-line: #3c5730;
 
-  --bad: #ff5c6a;
-  --bad-soft: #2b1319;
-  --bad-ink: #ff9ba4;
-  --bad-line: #5c2530;
+  --bad: #c8503f;
+  --bad-soft: #2b1512;
+  --bad-ink: #e89185;
+  --bad-line: #5e2a22;
 
-  --warn: #ffb020;
-  --warn-soft: #2a2010;
-  --warn-ink: #ffd489;
-  --warn-line: #5a4318;
+  --warn: #d9a441;
+  --warn-soft: #2b2113;
+  --warn-ink: #f0cd85;
+  --warn-line: #5c4520;
 
-  --gold: #ffc93c;
-  --radius: 16px;
-  --shadow: 0 4px 18px rgba(0, 0, 0, .45);
-  --shadow-lg: 0 14px 40px rgba(0, 0, 0, .55);
-  --inset-hi: inset 0 1px 0 rgba(255, 255, 255, .06);
+  --gold: #e8c460;
+  --radius: 14px;
+  --shadow: 0 4px 18px rgba(0, 0, 0, .55);
+  --shadow-lg: 0 16px 44px rgba(0, 0, 0, .68);
+  --inset-hi: inset 0 1px 0 rgba(255, 240, 210, .07);
 }
 html[data-theme="light"] {
   --bg: #f4f6fb;
@@ -1835,10 +1836,13 @@ html[data-theme="light"] .qbar { background: var(--bg-2); box-shadow: none; }
 }
 
 /* 턴이 시작되면 손패가 차례로 깔린다 */
-.rg-hand .rg-card { animation: dealIn .38s cubic-bezier(.2, .8, .3, 1) both; }
+/* fill-mode 를 both 로 두면 애니메이션이 끝난 뒤에도 transform 을 붙들어
+   부채꼴 기울기와 호버 들어올림을 둘 다 덮어버린다. backwards 로 두면
+   끝난 뒤 기본 transform(부채꼴)으로 돌아간다. */
+.rg-hand .rg-card { animation: dealIn .38s cubic-bezier(.2, .8, .3, 1) backwards; }
 @keyframes dealIn {
-  from { opacity: 0; transform: translateY(26px) rotate(-6deg) scale(.9); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; transform: translateY(30px) rotate(0deg) scale(.9); }
+  to { opacity: 1; transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px)); }
 }
 .rg-hand .rg-card:nth-child(1) { animation-delay: .02s; }
 .rg-hand .rg-card:nth-child(2) { animation-delay: .08s; }
@@ -1961,3 +1965,229 @@ h1, h2, .op-title, .rg-hero h2 { letter-spacing: -.025em; line-height: 1.32; }
   .rg-pip, .rg-card.playing, .rg-card.nope { animation: none; }
   .rg-card.playing { opacity: 0; }
 }
+
+/* ================================================================
+   Slay the Spire 계열 마감
+   광택·네온을 걷어내고 낡은 금속·양피지·비네팅으로 바꾼다.
+   ================================================================ */
+
+/* ---------- 바탕: 따뜻한 어둠 + 비네팅 + 결 ---------- */
+body {
+  background:
+    radial-gradient(1100px 620px at 50% -8%, rgba(200, 164, 92, .09), transparent 62%),
+    linear-gradient(180deg, var(--bg), var(--bg-2));
+  background-attachment: fixed;
+}
+body::after {   /* 화면 가장자리를 어둡게 눌러 무대처럼 */
+  content: ''; position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(ellipse 120% 90% at 50% 45%, transparent 52%, rgba(0, 0, 0, .58) 100%);
+}
+html[data-theme="light"] body::after { display: none; }
+main, .topbar, .menu-panel, .menu-scrim { position: relative; z-index: 2; }
+
+/* 숫자는 새김체 느낌으로 */
+.rc-cost, .rg-orb, .rg-floor, .re-hp, .rg-end-grid b {
+  font-family: Georgia, "Times New Roman", serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 광택 쓸기 효과는 StS 톤과 안 맞아 끈다 */
+.rg-card::before { display: none; }
+
+/* ---------- 카드: 세로형 액자 ---------- */
+.rg-card {
+  flex: 0 0 132px; width: 132px; height: 200px; padding: 0;
+  background: none; border: 0; box-shadow: none; overflow: visible;
+  position: relative; cursor: pointer;
+  transform-origin: 50% 118%;
+}
+.rc-frame {
+  position: absolute; inset: 0; border-radius: 10px; overflow: hidden;
+  background: linear-gradient(178deg, #3a2f25, #241d18 42%, #1b1510);
+  border: 2px solid var(--frame, #6b5738);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .6), inset 0 0 22px rgba(0, 0, 0, .55),
+              inset 0 1px 0 rgba(255, 240, 210, .10);
+  display: flex; flex-direction: column;
+}
+.rg-card.t-attack { --frame: #8a4034; --tint: rgba(200, 80, 63, .17); }
+.rg-card.t-skill  { --frame: #3f7a46; --tint: rgba(111, 191, 91, .15); }
+.rg-card.t-power  { --frame: #3d5f86; --tint: rgba(90, 150, 210, .16); }
+.rc-art {
+  height: 74px; display: grid; place-items: center; font-size: 2.1rem;
+  background:
+    radial-gradient(70% 90% at 50% 30%, var(--tint), transparent 72%),
+    linear-gradient(180deg, #2f261e, #221b15);
+  border-bottom: 1px solid rgba(0, 0, 0, .5);
+  text-shadow: 0 3px 8px rgba(0, 0, 0, .6);
+}
+.rc-banner {
+  margin: -12px 0 0; width: 100%;
+  background: linear-gradient(180deg, var(--frame), rgba(0, 0, 0, .55));
+  border-top: 1px solid rgba(255, 240, 210, .22);
+  border-bottom: 1px solid rgba(0, 0, 0, .5);
+  text-align: center; padding: 3px 0; position: relative; z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+}
+.rc-banner span {
+  font-size: .84rem; font-weight: 800; color: #f7ecd6; letter-spacing: -.01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .75);
+}
+.rc-desc {
+  flex: 1; padding: 7px 8px 9px; font-size: .69rem; line-height: 1.4;
+  color: var(--ink-soft); text-align: center; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; word-break: keep-all;
+}
+.rc-cost {
+  position: absolute; top: 5px; left: 5px; width: 30px; height: 30px; z-index: 3;
+  border-radius: 50%; display: grid; place-items: center;
+  font-size: 1.02rem; font-weight: 700; color: #10243a;
+  background: radial-gradient(circle at 35% 28%, #cfe6ff, #6fa8dc 45%, #2d6094 100%);
+  border: 2px solid #16304d;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .65), inset 0 -2px 5px rgba(0, 0, 0, .35);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .45);
+}
+.rg-card.dim .rc-frame { filter: grayscale(.65) brightness(.62); }
+.rg-card.dim .rc-cost { filter: grayscale(.5) brightness(.7); }
+.rg-card:hover { box-shadow: none; border-color: transparent; }
+.rg-card:hover .rc-frame {
+  border-color: var(--gold);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .7), 0 0 24px rgba(232, 196, 96, .45),
+              inset 0 0 22px rgba(0, 0, 0, .5);
+}
+
+/* ---------- 손패: 부채꼴 ---------- */
+.rg-board {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 10px;
+  margin: 14px 0 12px; min-height: 196px;
+}
+.rg-hand {
+  flex: 1; display: flex; justify-content: center; align-items: flex-end;
+  gap: 0; overflow: visible; padding-bottom: 4px;
+}
+.rg-hand .rg-card {
+  margin: 0 -22px;
+  transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px));
+  transition: transform .18s cubic-bezier(.2, .8, .3, 1);
+}
+.rg-hand .rg-card:hover,
+.rg-hand .rg-card:focus-visible {
+  transform: translateY(-26px) rotate(0deg) scale(1.09);
+  z-index: 20 !important;
+}
+.rg-hand.rg-preview .rg-card, .rg-hand.rg-choose .rg-card {
+  margin: 6px; transform: none;
+}
+.rg-hand.rg-preview, .rg-hand.rg-choose { flex-wrap: wrap; gap: 4px; }
+
+/* ---------- 에너지 오브 ---------- */
+.rg-orb {
+  flex-shrink: 0; width: 74px; height: 74px; border-radius: 50%;
+  display: grid; place-items: center; line-height: 1;
+  background:
+    radial-gradient(circle at 34% 26%, #d8ecff 4%, #71a9dd 34%, #2f6ba6 62%, #17395e 100%);
+  border: 3px solid #c8a45c;
+  box-shadow: 0 0 26px rgba(80, 150, 220, .5), inset 0 -6px 14px rgba(0, 0, 0, .45),
+              0 5px 14px rgba(0, 0, 0, .6);
+  color: #0d2136; text-shadow: 0 1px 0 rgba(255, 255, 255, .4);
+}
+.rg-orb b { font-size: 1.7rem; font-weight: 700; }
+.rg-orb span { font-size: .8rem; opacity: .75; }
+.rg-orb.empty { filter: grayscale(.75) brightness(.7); box-shadow: 0 5px 14px rgba(0, 0, 0, .6); }
+
+.rg-piles { flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
+
+/* ---------- 지도: 아래에서 위로 ---------- */
+.rg-maphead { text-align: center; margin: 6px 0 14px; }
+.rg-maphead b { display: block; font-size: 1.12rem; letter-spacing: -.02em; }
+.rg-maphead span { font-size: .85rem; color: var(--ink-soft); }
+.rg-map {
+  display: flex; flex-direction: column-reverse;
+  gap: 0; padding: 6px 0 10px; position: relative;
+}
+.rg-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0; position: relative;
+}
+.rg-row::before {   /* 층과 층을 잇는 길 */
+  content: ''; position: absolute; left: 57px; right: auto; bottom: 50%; width: 2px; height: 100%;
+  background: repeating-linear-gradient(180deg, var(--line) 0 5px, transparent 5px 10px);
+}
+.rg-row:first-child::before { display: none; }
+.rg-floor {
+  width: 26px; text-align: right; flex-shrink: 0;
+  font-size: .82rem; font-weight: 700; color: var(--ink-faint);
+}
+.rg-cells { display: flex; gap: 10px; flex-wrap: wrap; flex: 1; position: relative; z-index: 2; }
+.rg-pin {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 14px 8px 9px; border-radius: 999px;
+  background: linear-gradient(178deg, var(--card-2), var(--card));
+  border: 1px solid var(--line); box-shadow: var(--shadow);
+}
+.rp-ic {
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 34% 28%, #4a3d2c, #241d18);
+  border: 1px solid var(--brand-line); font-size: 1.05rem; flex-shrink: 0;
+}
+.rp-label { font-weight: 800; font-size: .9rem; display: flex; align-items: baseline; gap: 6px; }
+.rp-label em { font-style: normal; font-size: .74rem; color: var(--bad-ink); font-weight: 700; }
+.rg-pin.now {
+  cursor: pointer; border-color: var(--brand);
+  box-shadow: var(--shadow), 0 0 20px var(--brand-glow);
+  animation: pinGlow 2.1s ease-in-out infinite;
+}
+.rg-pin.now:hover {
+  background: linear-gradient(178deg, #3a2f20, var(--card-2));
+  transform: translateY(-2px); border-color: var(--gold);
+}
+@keyframes pinGlow {
+  0%, 100% { box-shadow: var(--shadow), 0 0 16px var(--brand-glow); }
+  50% { box-shadow: var(--shadow), 0 0 28px var(--brand-glow); }
+}
+.rg-pin.past { opacity: .6; padding: 6px; }
+.rg-pin.past .rp-ic { width: 26px; height: 26px; font-size: .85rem; border-color: var(--good-line); }
+.rg-pin.future { opacity: .3; padding: 6px; }
+.rg-pin.future .rp-ic { width: 26px; height: 26px; font-size: .85rem; }
+.rg-row.now .rg-floor { color: var(--brand-deep); font-size: .95rem; }
+
+/* ---------- 적 패널 ---------- */
+.rg-enemy {
+  background:
+    radial-gradient(600px 220px at 50% 0%, rgba(200, 80, 63, .2), transparent 72%),
+    linear-gradient(170deg, #2b1c18, #170f0d);
+  border: 1px solid var(--bad-line);
+}
+.re-bar i { background: linear-gradient(90deg, #a8382c, #d9614c); box-shadow: 0 0 10px rgba(200, 80, 63, .55); }
+
+/* ---------- 그 밖의 표면 ---------- */
+.card { border-radius: var(--radius); }
+.op-card {
+  background:
+    radial-gradient(500px 220px at 82% 0%, rgba(255, 240, 210, .13), transparent 66%),
+    linear-gradient(150deg, #3d2f18, #6b5326 55%, #8a6b2e);
+  border: 1px solid var(--brand-line);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .6), var(--inset-hi);
+}
+.op-card.resume {
+  background:
+    radial-gradient(500px 220px at 82% 0%, rgba(255, 240, 210, .13), transparent 66%),
+    linear-gradient(150deg, #4a2418, #7d3b22 55%, #9c4d28);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .6), var(--inset-hi);
+}
+.btn-primary {
+  background: linear-gradient(178deg, #a5813c, #7a5f28 60%, #5d4820);
+  border: 1px solid #c8a45c; color: #fff4dd;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .55), var(--inset-hi);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .5);
+}
+.btn-primary:hover { background: linear-gradient(178deg, #c09548, #8d6d2e 60%, #6b5325); }
+.logo::before { background: var(--brand); box-shadow: 0 0 10px var(--brand); }
+
+@media (max-width: 460px) {
+  .rg-card { flex-basis: 108px; width: 108px; height: 160px; }
+  .rc-art { height: 68px; font-size: 1.9rem; }
+  .rg-orb { width: 60px; height: 60px; }
+  .rg-orb b { font-size: 1.35rem; }
+  .rg-hand .rg-card { margin: 0 -18px; }
+}
+@media (prefers-reduced-motion: reduce) { .rg-pin.now { animation: none; } }

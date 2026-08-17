@@ -11,17 +11,18 @@
 var RG_CIRC = ['①', '②', '③', '④'];
 
 /* ---------- 카드 ---------- */
+/* type: 카드 테두리 색을 정한다 — attack(붉은) / skill(초록) / power(푸른) */
 var RCARDS = {
-  cut: { icon: '✂️', name: '소거', cost: 1, desc: '확실히 아닌 선택지 2개를 지운다' },
-  recall: { icon: '📖', name: '복기', cost: 1, desc: '이 개념의 핵심을 미리 본다' },
-  focus: { icon: '💥', name: '집중', cost: 1, desc: '맞히면 피해 +4' },
-  insul: { icon: '🛡', name: '절연', cost: 1, desc: '이번에 틀려도 체력이 깎이지 않는다' },
-  heal: { icon: '❤️', name: '응급처치', cost: 2, desc: '체력을 2 회복한다' },
-  surge: { icon: '⚡', name: '과전류', cost: 2, desc: '맞히면 피해 +9, 틀리면 체력 -1 추가' },
-  insight: { icon: '🔍', name: '통찰', cost: 0, desc: '카드를 2장 뽑는다' },
-  ground: { icon: '🪝', name: '접지', cost: 1, desc: '지금 문제를 이미 마스터한 쉬운 것으로 바꾼다' },
-  again: { icon: '🔁', name: '재도전', cost: 1, desc: '이번에 틀리면 이 개념을 전투 안에서 한 번 더 만난다' },
-  charge: { icon: '🔋', name: '충전', cost: 0, desc: '이번 턴 에너지 +2' }
+  cut: { icon: '✂️', name: '소거', cost: 1, type: 'skill', desc: '확실히 아닌 선택지 2개를 지운다' },
+  recall: { icon: '📖', name: '복기', cost: 1, type: 'skill', desc: '이 개념의 핵심을 미리 본다' },
+  focus: { icon: '💥', name: '집중', cost: 1, type: 'attack', desc: '맞히면 피해 +4' },
+  insul: { icon: '🛡', name: '절연', cost: 1, type: 'power', desc: '이번에 틀려도 체력이 깎이지 않는다' },
+  heal: { icon: '❤️', name: '응급처치', cost: 2, type: 'power', desc: '체력을 2 회복한다' },
+  surge: { icon: '⚡', name: '과전류', cost: 2, type: 'attack', desc: '맞히면 피해 +9, 틀리면 체력 -1 추가' },
+  insight: { icon: '🔍', name: '통찰', cost: 0, type: 'skill', desc: '카드를 2장 뽑는다' },
+  ground: { icon: '🪝', name: '접지', cost: 1, type: 'skill', desc: '지금 문제를 이미 마스터한 쉬운 것으로 바꾼다' },
+  again: { icon: '🔁', name: '재도전', cost: 1, type: 'skill', desc: '이번에 틀리면 이 개념을 전투 안에서 한 번 더 만난다' },
+  charge: { icon: '🔋', name: '충전', cost: 0, type: 'power', desc: '이번 턴 에너지 +2' }
 };
 var RCARD_POOL = ['cut', 'recall', 'focus', 'insul', 'heal', 'surge', 'insight', 'ground', 'again', 'charge'];
 var START_DECK = ['cut', 'cut', 'focus', 'focus', 'recall'];
@@ -180,13 +181,17 @@ function rgTopHtml(r) {
       return '<span class="rg-relic" title="' + esc(rl.name + ' — ' + rl.desc) + '">' + rl.icon + '</span>';
     }).join('') + '</div>' : '');
 }
+/* 세로형 카드: 비용 오브 → 그림칸 → 이름 띠 → 설명칸 */
 function rgCardHtml(id, extra, disabled) {
   var c = RCARDS[id];
-  return '<div class="rg-card' + (disabled ? ' dim' : '') + '"' + (extra || '') + '>' +
+  return '<div class="rg-card t-' + (c.type || 'skill') + (disabled ? ' dim' : '') + '"' + (extra || '') + '>' +
+    '<div class="rc-frame">' +
+    '<div class="rc-art">' + c.icon + '</div>' +
+    '<div class="rc-banner"><span>' + esc(c.name) + '</span></div>' +
+    '<div class="rc-desc">' + esc(c.desc) + '</div>' +
+    '</div>' +
     '<div class="rc-cost">' + c.cost + '</div>' +
-    '<div class="rc-icon">' + c.icon + '</div>' +
-    '<div class="rc-name">' + esc(c.name) + '</div>' +
-    '<div class="rc-desc">' + esc(c.desc) + '</div></div>';
+    '</div>';
 }
 
 /* ---------- 작전 브리핑: 어느 구역으로 출격할까 ---------- */
@@ -267,38 +272,50 @@ function renderRogueMap() {
     rgSave();
   }
 
-  var track = FLOOR_PLAN.map(function (f, i) {
-    var n = i + 1;
-    var cls = n < r.floor ? 'done' : (n === r.floor ? 'now' : '');
-    var ic = f[0] === 'boss' ? '👑' : (n < r.floor ? '✓' : '·');
-    return '<span class="rg-step ' + cls + '">' + ic + '</span>';
-  }).join('');
-
-  var cards = r.offers.list.map(function (nd, i) {
-    var info = NODE_INFO[nd.type];
-    var sub = nd.enemy ? nd.enemy.subjName + ' · ' + nd.enemy.name : info.desc;
-    return '<div class="rg-node" data-node="' + i + '">' +
-      '<div class="rn-icon">' + (nd.enemy ? nd.enemy.icon : info.icon) + '</div>' +
-      '<div class="rn-body"><div class="rn-name">' + esc(info.name) +
-      (nd.enemy ? ' <span class="rn-hp">HP ' + nd.enemy.hp + '</span>' : '') + '</div>' +
-      '<div class="rn-sub">' + esc(sub) + '</div></div></div>';
+  // 아래에서 위로 올라가는 세로 지도. 지난 층은 지나온 자취, 이번 층만 고를 수 있다.
+  r.path = r.path || [];
+  var rows = FLOOR_PLAN.map(function (kinds, i) {
+    var fl = i + 1;
+    var state = fl < r.floor ? 'past' : (fl === r.floor ? 'now' : 'future');
+    var cells;
+    if (state === 'now') {
+      cells = r.offers.list.map(function (nd, k) {
+        var info = NODE_INFO[nd.type];
+        return '<div class="rg-pin now" data-node="' + k + '" title="' + esc(info.name + ' — ' + info.desc) + '">' +
+          '<span class="rp-ic">' + (nd.enemy ? nd.enemy.icon : info.icon) + '</span>' +
+          '<span class="rp-label">' + esc(info.name) +
+          (nd.enemy ? '<em>HP ' + nd.enemy.hp + '</em>' : '') + '</span></div>';
+      }).join('');
+    } else if (state === 'past') {
+      var taken = r.path[i];
+      var ti = taken ? NODE_INFO[taken] : null;
+      cells = '<div class="rg-pin past"><span class="rp-ic">' + (ti ? ti.icon : '✓') + '</span></div>';
+    } else {
+      cells = kinds.map(function (k) {
+        return '<div class="rg-pin future"><span class="rp-ic">' + NODE_INFO[k].icon + '</span></div>';
+      }).join('');
+    }
+    return '<div class="rg-row ' + state + '"><span class="rg-floor">' + fl + '</span>' +
+      '<div class="rg-cells">' + cells + '</div></div>';
   }).join('');
 
   $('#view').innerHTML =
     rgTopHtml(r) +
-    '<div class="rg-track">' + track + '</div>' +
-    '<div class="card" style="text-align:center">' +
-    '<b style="font-size:1.1rem">' + r.floor + '층 — 어느 길로 갈까요?</b>' +
-    '<p class="muted" style="margin-top:4px">' + (r.floor === FLOOR_PLAN.length ? '마지막 관문이에요.' : '고른 쪽만 진행돼요.') + '</p></div>' +
-    '<div class="rg-nodes">' + cards + '</div>' +
+    '<div class="rg-maphead">' +
+    '<b>' + (r.floor === FLOOR_PLAN.length ? '마지막 관문' : r.floor + '층 — 어느 길로?') + '</b>' +
+    '<span>' + (r.floor === FLOOR_PLAN.length ? '이 층을 넘으면 구역 복구 완료' : '고른 쪽만 진행돼요') + '</span></div>' +
+    '<div class="rg-map">' + rows + '</div>' +
     '<div class="rg-foot-btns">' +
-    '<button class="btn btn-ghost btn-sm" id="rgDeckBtn">🃏 내 덱 보기</button>' +
-    '<button class="btn btn-ghost btn-sm" id="rgQuit">탐험 그만두기</button></div>';
+    '<button class="btn btn-ghost btn-sm" id="rgDeckBtn">내 덱 보기</button>' +
+    '<button class="btn btn-ghost btn-sm" id="rgQuit">작전 중단</button></div>';
 
   document.querySelectorAll('[data-node]').forEach(function (el) {
     el.onclick = function () {
       var nd = r.offers.list[parseInt(el.getAttribute('data-node'), 10)];
+      r.path = r.path || [];
+      r.path[r.floor - 1] = nd.type;    // 지나온 자취를 지도에 남긴다
       r.node = nd; r.offers = null; rgSave();
+      if (window.uiSound) uiSound('select');
       rgEnterNode(nd);
     };
   });
@@ -571,10 +588,17 @@ function renderRogueBattle() {
       '<span class="num">' + RG_CIRC[i] + '</span><span>' + esc(c) + '</span></button>';
   }).join('');
 
+  // 손패는 부채꼴로 편다 — 가운데가 앞으로, 양끝이 바깥으로 기운다
+  var n = r.hand.length;
   var handHtml = r.hand.map(function (id, i) {
     var c = RCARDS[id];
     var dis = answered || b.energy < c.cost;
-    return rgCardHtml(id, ' data-hand="' + i + '"', dis);
+    var mid = (n - 1) / 2;
+    var off = i - mid;
+    var rot = (n > 1 ? off * 8.5 : 0);
+    var lift = Math.abs(off) * Math.abs(off) * 7;
+    var style = ' style="--rot:' + rot.toFixed(2) + 'deg;--lift:' + lift.toFixed(1) + 'px;z-index:' + (10 - Math.round(Math.abs(off))) + '"';
+    return rgCardHtml(id, ' data-hand="' + i + '"' + style, dis);
   }).join('') || '<div class="rg-empty">손에 카드가 없어요 — 답을 고르세요</div>';
 
   var verdict = '';
@@ -598,18 +622,15 @@ function renderRogueBattle() {
     '<div class="re-hp">' + b.enemy.hp + ' / ' + b.enemy.maxHp + '</div>' +
     '</div></div>' +
 
-    '<div class="rg-energy">' +
-    '<span class="rg-en-label">에너지</span>' +
-    '<span class="rg-pips">' + (function () {
-      var s = '', max = Math.max(b.energyMax || 2, b.energy);
-      for (var i = 0; i < max; i++) s += '<i class="rg-pip' + (i < b.energy ? '' : ' off') + '"></i>';
-      return s;
-    })() + '</span>' +
-    '<span class="rg-piles">' +
+    '<div class="rg-board">' +
+    '<div class="rg-orb' + (b.energy ? '' : ' empty') + '" title="에너지">' +
+    '<b>' + b.energy + '</b><span>/' + (b.energyMax || 2) + '</span></div>' +
+    '<div class="rg-hand">' + handHtml + '</div>' +
+    '<div class="rg-piles">' +
     '<span class="rg-pile" title="뽑을 카드"><i></i>' + r.draw.length + '</span>' +
     '<span class="rg-pile used" title="버린 카드"><i></i>' + r.discard.length + '</span>' +
-    '</span></div>' +
-    '<div class="rg-hand">' + handHtml + '</div>' +
+    '</div>' +
+    '</div>' +
     (b.log ? '<div class="rg-log">' + esc(b.log) + '</div>' : '') +
 
     '<div class="card">' +
