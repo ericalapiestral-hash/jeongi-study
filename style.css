@@ -1669,3 +1669,203 @@ html[data-theme="light"] .qbar { background: var(--bg-2); box-shadow: none; }
   font-family: inherit; font-size: .95rem; line-height: 1; flex-shrink: 0; transition: all .15s;
 }
 .theme-btn:hover { border-color: var(--brand); color: var(--brand-deep); }
+
+/* ================================================================
+   상단바 → 게임식 서랍 메뉴
+   가로 스크롤 탭 바를 걷어내고, 화면에는 제목과 메뉴 버튼만 남긴다.
+   메뉴 항목에는 아이콘을 쓰지 않는다 — 글자만으로 위계를 만든다.
+   ================================================================ */
+
+.topbar-inner { flex-wrap: nowrap; padding: 12px 18px; }
+.logo {
+  font-weight: 800; font-size: 1.02rem; letter-spacing: .04em;
+  color: var(--ink); text-transform: none;
+}
+.logo::before {
+  content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--brand); box-shadow: 0 0 10px var(--brand); margin-right: 9px;
+  vertical-align: middle; animation: pulseDot 2.4s ease-in-out infinite;
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .45; transform: scale(.82); }
+}
+
+/* ---------- 메뉴 버튼 (햄버거) ---------- */
+.menu-btn {
+  position: relative; width: 42px; height: 38px; flex-shrink: 0;
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 5px;
+  background: none; border: 0; cursor: pointer; padding: 0 2px;
+}
+.menu-btn span {
+  display: block; height: 2px; border-radius: 2px; background: var(--ink-soft);
+  transition: transform .3s cubic-bezier(.2,.8,.3,1), opacity .2s, width .3s, background .2s;
+}
+.menu-btn span:nth-child(1) { width: 22px; }
+.menu-btn span:nth-child(2) { width: 16px; }
+.menu-btn span:nth-child(3) { width: 22px; }
+.menu-btn:hover span { background: var(--brand-deep); }
+.menu-btn:hover span:nth-child(2) { width: 22px; }
+.menu-btn.on span { background: var(--brand-deep); }
+.menu-btn.on span:nth-child(1) { width: 22px; transform: translateY(7px) rotate(45deg); }
+.menu-btn.on span:nth-child(2) { opacity: 0; width: 0; }
+.menu-btn.on span:nth-child(3) { width: 22px; transform: translateY(-7px) rotate(-45deg); }
+.menu-dot {
+  position: absolute; top: 2px; right: 0; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--bad); box-shadow: 0 0 8px var(--bad);
+  animation: pulseDot 1.8s ease-in-out infinite;
+}
+
+/* ---------- 서랍 ---------- */
+.menu-scrim {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(0, 0, 0, .55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  opacity: 0; transition: opacity .26s ease;
+}
+.menu-scrim.on { opacity: 1; }
+
+.menu-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 41;
+  width: min(330px, 84vw); overflow-y: auto;
+  padding: 26px 22px calc(26px + env(safe-area-inset-bottom));
+  background: linear-gradient(200deg, var(--card-2), var(--card) 60%, var(--bg));
+  border-left: 1px solid var(--line);
+  box-shadow: -24px 0 60px rgba(0, 0, 0, .5);
+  transform: translateX(100%);
+  transition: transform .3s cubic-bezier(.2, .8, .3, 1);
+}
+.menu-panel.on { transform: none; }
+/* 옛 상단바의 nav{display:flex} 가 서랍 안 <nav>까지 잡아서 항목이 가로로 늘어섰다.
+   서랍 안에서는 세로로 쌓이게 되돌린다. */
+.menu-panel nav {
+  display: block; gap: 0; overflow: visible; max-width: none;
+}
+.menu-title {
+  font-size: .74rem; font-weight: 800; letter-spacing: .22em;
+  /* 작은 글자라 --ink-faint 는 라이트 테마에서 대비가 2.84까지 떨어진다 */
+  color: var(--ink-soft); text-transform: uppercase; margin-bottom: 18px;
+}
+.menu-group {
+  font-size: .7rem; font-weight: 800; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--brand-deep); opacity: .75;
+  margin: 22px 0 8px; padding-bottom: 7px; border-bottom: 1px solid var(--line);
+}
+.menu-group:first-of-type { margin-top: 0; }
+.menu-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; text-align: left; background: none; border: 0; cursor: pointer;
+  font-family: inherit; font-size: 1.04rem; font-weight: 700; color: var(--ink);
+  padding: 12px 12px 12px 14px; border-radius: 11px; position: relative;
+  transition: background .16s, color .16s, transform .16s, padding-left .16s;
+}
+.menu-item::before {
+  content: ''; position: absolute; left: 0; top: 50%; width: 3px; height: 0;
+  border-radius: 3px; background: var(--brand); transform: translateY(-50%);
+  transition: height .2s cubic-bezier(.2,.8,.3,1); box-shadow: 0 0 10px var(--brand);
+}
+.menu-item:hover {
+  background: var(--brand-soft); color: var(--brand-deep);
+  transform: translateX(3px); padding-left: 18px;
+}
+.menu-item:hover::before { height: 62%; }
+.menu-badge {
+  min-width: 22px; padding: 1px 7px; border-radius: 99px;
+  background: var(--bad); color: #fff; font-size: .74rem; font-weight: 800; text-align: center;
+}
+.menu-badge:empty { display: none; }
+.menu-foot { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); }
+.menu-theme {
+  width: 100%; background: none; border: 1px solid var(--line); border-radius: 11px;
+  color: var(--ink-soft); font-family: inherit; font-size: .92rem; font-weight: 700;
+  padding: 11px; cursor: pointer; transition: all .16s;
+}
+.menu-theme:hover { border-color: var(--brand); color: var(--brand-deep); background: var(--brand-soft); }
+
+/* 열릴 때 항목이 차례로 미끄러져 들어온다 */
+.menu-panel.on .menu-group,
+.menu-panel.on .menu-item,
+.menu-panel.on .menu-foot { animation: menuIn .34s cubic-bezier(.2, .8, .3, 1) both; }
+@keyframes menuIn { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: none; } }
+.menu-panel.on #mainNav > *:nth-child(1) { animation-delay: .04s; }
+.menu-panel.on #mainNav > *:nth-child(2) { animation-delay: .07s; }
+.menu-panel.on #mainNav > *:nth-child(3) { animation-delay: .10s; }
+.menu-panel.on #mainNav > *:nth-child(4) { animation-delay: .13s; }
+.menu-panel.on #mainNav > *:nth-child(5) { animation-delay: .16s; }
+.menu-panel.on #mainNav > *:nth-child(6) { animation-delay: .19s; }
+.menu-panel.on #mainNav > *:nth-child(7) { animation-delay: .21s; }
+.menu-panel.on #mainNav > *:nth-child(8) { animation-delay: .23s; }
+.menu-panel.on #mainNav > *:nth-child(9) { animation-delay: .25s; }
+.menu-panel.on #mainNav > *:nth-child(10) { animation-delay: .27s; }
+.menu-panel.on #mainNav > *:nth-child(11) { animation-delay: .29s; }
+.menu-panel.on #mainNav > *:nth-child(12) { animation-delay: .31s; }
+.menu-panel.on #mainNav > *:nth-child(13) { animation-delay: .33s; }
+.menu-panel.on .menu-foot { animation-delay: .36s; }
+
+/* ================================================================
+   전투 연출
+   ================================================================ */
+
+/* 피해 숫자가 떠오르며 사라진다 */
+.dmg-float {
+  position: absolute; z-index: 5; pointer-events: none;
+  font-weight: 800; font-size: 1.9rem; color: #ffd36e;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .7), 0 0 22px rgba(255, 180, 60, .8);
+  animation: dmgUp .9s cubic-bezier(.2, .7, .3, 1) forwards;
+}
+.dmg-float.crit { font-size: 2.5rem; color: #ff9f43; }
+.dmg-float.miss { color: var(--bad-ink); font-size: 1.35rem; }
+@keyframes dmgUp {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(.6); }
+  22% { opacity: 1; transform: translate(-50%, -10px) scale(1.18); }
+  40% { transform: translate(-50%, -18px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -62px) scale(.96); }
+}
+
+/* 체력을 잃으면 화면 가장자리가 붉게 번쩍 */
+.hurt-flash {
+  position: fixed; inset: 0; z-index: 30; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(255, 60, 76, .42) 100%);
+  animation: hurtFade .5s ease-out forwards;
+}
+@keyframes hurtFade { from { opacity: 1; } to { opacity: 0; } }
+.rg-hearts.lost { animation: heartShake .45s; }
+@keyframes heartShake {
+  0%, 100% { transform: none; } 20% { transform: translateX(-5px) scale(1.06); }
+  45% { transform: translateX(4px); } 70% { transform: translateX(-2px); }
+}
+
+/* 턴이 시작되면 손패가 차례로 깔린다 */
+.rg-hand .rg-card { animation: dealIn .38s cubic-bezier(.2, .8, .3, 1) both; }
+@keyframes dealIn {
+  from { opacity: 0; transform: translateY(26px) rotate(-6deg) scale(.9); }
+  to { opacity: 1; transform: none; }
+}
+.rg-hand .rg-card:nth-child(1) { animation-delay: .02s; }
+.rg-hand .rg-card:nth-child(2) { animation-delay: .08s; }
+.rg-hand .rg-card:nth-child(3) { animation-delay: .14s; }
+.rg-hand .rg-card:nth-child(4) { animation-delay: .20s; }
+.rg-hand .rg-card:nth-child(5) { animation-delay: .26s; }
+
+/* 적을 쓰러뜨리면 패널이 무너진다 */
+.rg-enemy.down { animation: enemyDown .6s cubic-bezier(.4, 0, .6, 1) forwards; }
+@keyframes enemyDown {
+  0% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(16px) scale(.94); filter: grayscale(1) blur(2px); }
+}
+
+/* 정답 선택지가 한 번 빛난다 */
+.choice.picked-right { animation: rightPop .45s cubic-bezier(.2, .8, .3, 1); }
+@keyframes rightPop {
+  0% { transform: scale(1); } 35% { transform: scale(1.025); } 100% { transform: scale(1); }
+}
+.choice.picked-wrong { animation: wrongShake .4s; }
+@keyframes wrongShake {
+  0%, 100% { transform: none; } 25% { transform: translateX(-6px); }
+  55% { transform: translateX(5px); } 80% { transform: translateX(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-panel.on .menu-group, .menu-panel.on .menu-item, .menu-panel.on .menu-foot,
+  .rg-hand .rg-card, .dmg-float, .hurt-flash, .rg-enemy.down,
+  .choice.picked-right, .choice.picked-wrong, .logo::before { animation: none; }
+}

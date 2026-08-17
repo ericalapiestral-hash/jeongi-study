@@ -17,7 +17,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167.png">
 <link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
-<link rel="stylesheet" href="style.css?v=20">
+<link rel="stylesheet" href="style.css?v=23">
 <script>
 // 테마는 첫 페인트 전에 정해야 화면이 번쩍이지 않는다. 그래서 전체 저장소가 아니라
 // 작은 키 하나만 따로 읽는다 (기본값은 어두운 테마).
@@ -27,22 +27,38 @@ try { if (localStorage.getItem('jeongi-theme') === 'light') document.documentEle
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="logo" id="logoHome" title="기지로">⚡ <span class="logo-full">전기산업기사</span> <span class="logo-sub">필기 스터디</span></div>
-    <button class="theme-btn" id="themeBtn" title="밝게 / 어둡게">🌙</button>
-    <nav id="mainNav">
-      <button class="nav-btn" data-nav="home">🏠 홈</button>
-      <button class="nav-btn" data-nav="crunch">🔥 벼락치기</button>
-      <button class="nav-btn" data-nav="journey">🗺 여정</button>
-      <button class="nav-btn" data-nav="rogue">🎴 작전</button>
-      <button class="nav-btn" data-nav="games">🎮 게임</button>
-      <button class="nav-btn" data-nav="dojo">⚡ 계산 도장</button>
-      <button class="nav-btn" data-nav="codex">📐 공식</button>
-      <button class="nav-btn" data-nav="dict">📚 사전</button>
-      <button class="nav-btn" data-nav="notebook">📌 오답 <span class="nav-badge" id="wrongBadge"></span></button>
-      <button class="nav-btn" data-nav="stats">📊 성적</button>
-    </nav>
+    <div class="logo" id="logoHome" title="기지로">전기산업기사</div>
+    <button class="menu-btn" id="menuBtn" aria-label="메뉴" aria-expanded="false" aria-controls="menuPanel">
+      <span></span><span></span><span></span>
+      <i class="menu-dot" id="menuDot" hidden></i>
+    </button>
   </div>
 </header>
+
+<div class="menu-scrim" id="menuScrim" hidden></div>
+<aside class="menu-panel" id="menuPanel" hidden aria-hidden="true" aria-label="메뉴">
+  <div class="menu-title">메뉴</div>
+  <nav id="mainNav">
+    <div class="menu-group">작전</div>
+    <button class="menu-item" data-nav="home">기지</button>
+    <button class="menu-item" data-nav="rogue">전력망 복구</button>
+    <button class="menu-item" data-nav="crunch">벼락치기</button>
+
+    <div class="menu-group">훈련</div>
+    <button class="menu-item" data-nav="journey">여정</button>
+    <button class="menu-item" data-nav="games">미니 게임</button>
+    <button class="menu-item" data-nav="dojo">계산 도장</button>
+    <button class="menu-item" data-nav="codex">공식 도감</button>
+    <button class="menu-item" data-nav="dict">용어 사전</button>
+
+    <div class="menu-group">기록</div>
+    <button class="menu-item" data-nav="notebook">오답 노트<span class="menu-badge" id="wrongBadge"></span></button>
+    <button class="menu-item" data-nav="stats">성적</button>
+  </nav>
+  <div class="menu-foot">
+    <button class="menu-theme" id="themeBtn">화면 밝게</button>
+  </div>
+</aside>
 
 <main id="view"></main>
 

@@ -604,14 +604,46 @@ function renderRogueBattle() {
     });
   } else {
     $('#rgNext').onclick = rgTurnEnd;
-    // 명중하면 적이 한 번 흔들린다
+    var ep = document.querySelector('.rg-enemy');
     if (b.lastDmg > 0) {
-      var ep = document.querySelector('.rg-enemy');
-      if (ep) { ep.classList.add('hit'); setTimeout(function () { ep.classList.remove('hit'); }, 320); }
+      // 명중: 적이 흔들리고 피해 숫자가 떠오른다
+      if (ep) {
+        ep.classList.add('hit');
+        setTimeout(function () { ep.classList.remove('hit'); }, 320);
+        rgFloat(ep, '-' + b.lastDmg, b.lastDmg >= 12 ? 'crit' : '');
+        if (b.enemy.hp <= 0) setTimeout(function () { ep.classList.add('down'); }, 380);
+      }
+    } else if (!b.shield) {
+      // 피격: 화면이 붉게 번쩍이고 하트가 떨린다
+      if (ep) rgFloat(ep, '빗나감', 'miss');
+      rgHurtFlash();
     }
   }
   if (window.updateBadge) updateBadge();
   window.scrollTo(0, 0);
+}
+
+/* ---------- 전투 연출 ---------- */
+/* 피해 숫자를 해당 패널 위에 띄운다 (패널 기준 절대 위치라 스크롤을 따라간다) */
+function rgFloat(anchor, text, cls) {
+  if (!anchor) return;
+  var el = document.createElement('div');
+  el.className = 'dmg-float' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  el.style.left = '50%';
+  el.style.top = '18%';
+  if (getComputedStyle(anchor).position === 'static') anchor.style.position = 'relative';
+  anchor.appendChild(el);
+  setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 950);
+}
+
+function rgHurtFlash() {
+  var f = document.createElement('div');
+  f.className = 'hurt-flash';
+  document.body.appendChild(f);
+  setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 520);
+  var h = document.querySelector('.rg-hearts');
+  if (h) { h.classList.add('lost'); setTimeout(function () { h.classList.remove('lost'); }, 470); }
 }
 
 /* ---------- 전투 승리 ---------- */

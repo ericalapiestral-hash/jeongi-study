@@ -1507,7 +1507,11 @@ function renderStats() {
 /* ---------- 공통 ---------- */
 function updateBadge() {
   var n = needReviewCount();
-  $('#wrongBadge').textContent = n ? String(n) : '';
+  var b = $('#wrongBadge');
+  if (b) b.textContent = n ? String(n) : '';
+  // 오답 배지가 메뉴 안으로 들어갔으므로, 밖에서는 메뉴 버튼의 점으로 알린다
+  var d = $('#menuDot');
+  if (d) d.hidden = !n;
 }
 function confirmLeave() {
   if (session && session.answered.length < session.queue.length) {
@@ -1515,9 +1519,34 @@ function confirmLeave() {
   }
   return true;
 }
-document.querySelectorAll('.nav-btn').forEach(function (b) {
+/* ---------- 메뉴 (상단바를 대신하는 서랍) ---------- */
+var menuOpen = false;
+function setMenu(open) {
+  var p = $('#menuPanel'), sc = $('#menuScrim'), b = $('#menuBtn');
+  if (!p || !sc || !b) return;
+  menuOpen = open;
+  b.setAttribute('aria-expanded', open ? 'true' : 'false');
+  b.classList.toggle('on', open);
+  p.setAttribute('aria-hidden', open ? 'false' : 'true');
+  if (open) {
+    p.hidden = false; sc.hidden = false;
+    // 다음 프레임에 클래스를 붙여야 열림 전환이 실제로 재생된다
+    requestAnimationFrame(function () { p.classList.add('on'); sc.classList.add('on'); });
+    document.body.style.overflow = 'hidden';
+  } else {
+    p.classList.remove('on'); sc.classList.remove('on');
+    document.body.style.overflow = '';
+    setTimeout(function () { if (!menuOpen) { p.hidden = true; sc.hidden = true; } }, 260);
+  }
+}
+var mb = $('#menuBtn'); if (mb) mb.onclick = function () { setMenu(!menuOpen); };
+var msc = $('#menuScrim'); if (msc) msc.onclick = function () { setMenu(false); };
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && menuOpen) setMenu(false); });
+
+document.querySelectorAll('.menu-item').forEach(function (b) {
   b.onclick = function () {
     if (!confirmLeave()) return;
+    setMenu(false);
     var to = b.getAttribute('data-nav');
     if (to === 'home') renderHome();
     else if (to === 'crunch') { if (window.renderCrunch) window.renderCrunch(); }
@@ -1537,7 +1566,7 @@ $('#logoHome').onclick = function () { if (confirmLeave()) renderHome(); };
 function currentTheme() { return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
 function paintThemeBtn() {
   var b = $('#themeBtn');
-  if (b) b.textContent = currentTheme() === 'light' ? '☀️' : '🌙';
+  if (b) b.textContent = currentTheme() === 'light' ? '화면 어둡게' : '화면 밝게';
 }
 var themeBtn = $('#themeBtn');
 if (themeBtn) {
