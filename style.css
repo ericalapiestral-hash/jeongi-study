@@ -38,6 +38,11 @@
   --warn-line: #5c4520;
 
   --gold: #e8c460;
+  /* 주아는 굵기가 400 하나뿐이라, 굵게 지정된 글자는 브라우저가 가짜 굵기를 만들어
+     한글 받침이 뭉갠다. 그래서 font-synthesis 를 끄고 크기·색으로 위계를 준다.
+     본문만 다른 서체로 되돌리고 싶으면 --font-body 만 바꾸면 된다. */
+  --font-ui: 'Jua', "Pretendard", "Malgun Gothic", "맑은 고딕", "Segoe UI Emoji", sans-serif;
+  --font-body: var(--font-ui);
   --radius: 14px;
   --shadow: 0 4px 18px rgba(0, 0, 0, .55);
   --shadow-lg: 0 16px 44px rgba(0, 0, 0, .68);
@@ -82,7 +87,9 @@ html[data-theme="light"] {
 
 html { font-size: 16px; }
 body {
-  font-family: "Pretendard", "Pretendard Variable", "Noto Sans KR", "Malgun Gothic", "맑은 고딕", sans-serif;
+  font-family: var(--font-body);
+  font-synthesis: none;              /* 가짜 굵기·기울임 금지 */
+  -webkit-font-synthesis: none;
   background: var(--bg);
   color: var(--ink);
   line-height: 1.65;
@@ -1985,9 +1992,9 @@ body::after {   /* 화면 가장자리를 어둡게 눌러 무대처럼 */
 html[data-theme="light"] body::after { display: none; }
 main, .topbar, .menu-panel, .menu-scrim { position: relative; z-index: 2; }
 
-/* 숫자는 새김체 느낌으로 */
+/* 숫자도 같은 서체로 — 주아의 둥근 숫자가 이 톤에 맞는다 */
 .rc-cost, .rg-orb, .rg-floor, .re-hp, .rg-end-grid b {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-ui);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2191,3 +2198,10 @@ main, .topbar, .menu-panel, .menu-scrim { position: relative; z-index: 2; }
   .rg-hand .rg-card { margin: 0 -18px; }
 }
 @media (prefers-reduced-motion: reduce) { .rg-pin.now { animation: none; } }
+
+/* ---------- 주아 적용에 따른 보완 ----------
+   굵기가 400 하나뿐이라 <b>·font-weight 가 시각적으로 사라진다.
+   가짜 굵기(뭉개짐) 대신 아주 살짝 밝게 해서 강조를 살린다. */
+b, strong { color: #fffaf0; }
+html[data-theme="light"] b, html[data-theme="light"] strong { color: #0f1420; }
+.qtext, .s-body, .explain, .l-steps { letter-spacing: 0; }
