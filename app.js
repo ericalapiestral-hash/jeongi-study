@@ -26,7 +26,8 @@ function defaultState() {
     node: {},       // "subjKey-ui" -> {taught, solved} 여정 노드 진행
     onboarded: false,
     formulaLearned: {}, // "subjKey-idx" -> true 공식 수집
-    dq: {}          // 'YYYY-MM-DD' -> 일일 퀘스트 진행 카운터
+    dq: {},         // 'YYYY-MM-DD' -> 일일 퀘스트 진행 카운터
+    ghost: {}       // 코스키 -> {times,durMs,correct,total,date} 어제의 나 기록
   };
 }
 function loadState() {
@@ -355,6 +356,7 @@ function startSession(mode, subjKey) {
     answered: [], followupStart: -1,
     locked: false, startTs: Date.now()
   };
+  if (window.ghostStart) window.ghostStart(session);
   renderQuiz();
 }
 
@@ -371,6 +373,7 @@ function startIllusionSession() {
   });
   if (!queue.length) { toast('착각 구역이 없어요!'); return; }
   session = { mode: 'review', subjKey: null, queue: queue, idx: 0, followups: [], answered: [], followupStart: -1, locked: false, startTs: Date.now() };
+  if (window.ghostStart) window.ghostStart(session);
   renderQuiz();
 }
 
@@ -385,16 +388,19 @@ function startFocusSession() {
     idx: 0, followups: [], answered: [], followupStart: -1,
     locked: false, startTs: Date.now()
   };
+  if (window.ghostStart) window.ghostStart(session);
   renderQuiz();
 }
 
-var MODE_NAMES = { subject: '과목 공부', random: '오늘의 공부', review: '오답 복습', exam: '미니 모의고사', focus: '약점 집중 공부', single: '개념 확인' };
+var MODE_NAMES = { subject: '과목 공부', random: '오늘의 공부', review: '오답 복습', exam: '미니 모의고사', focus: '약점 집중 공부', single: '개념 확인', garden: '🪴 물 주기' };
 
 function currentItem() { return session.queue[session.idx]; }
 
 function advance() {
   session.idx++;
   session.locked = false;
+  session.hintLv = 0;          // 힌트는 문제마다 다시 시작
+  session.hintKilled = null;
   if (session.idx >= session.queue.length) {
     if (session.followups.length) {
       session.followupStart = session.queue.length;
@@ -439,8 +445,9 @@ function recordAttempt(subjKey, ui, which, ok, opts) {
 
   var srs = S.srs[ukey] || { lvl: 0, due: null };
   if (ok) {
-    if (opts.conf === 'guess') {
-      // 찍어서 맞힌 건 "아는 것"이 아니므로 레벨을 올리지 않고 내일 다시 확인
+    if (opts.conf === 'guess' || opts.hint >= 2) {
+      // 찍어서 맞힌 것, 그리고 개념을 열어보고 맞힌 것은 "아는 것"이 아니므로
+      // 레벨을 올리지 않고 내일 다시 확인한다 (예상 점수가 부풀지 않게)
       srs.due = addDays(todayStr(), 1);
     } else {
       var otherA = S.attempts[qidOf(subjKey, ui, which === 'm' ? 't' : 'm')];
@@ -463,7 +470,11 @@ function recordAttempt(subjKey, ui, which, ok, opts) {
   saveState();
 
   if (typeof opts.xp === 'number') addXP(opts.xp, opts.silentXp);
-  else if (ok) addXP(Math.round((opts.isRetry ? 20 : 10) * (opts.conf === 'sure' ? 2 : opts.conf === 'guess' ? 0.3 : 1)));
+  else if (ok) {
+    var confMul = opts.conf === 'sure' ? 2 : opts.conf === 'guess' ? 0.3 : 1;
+    var hintMul = opts.hint >= 2 ? 0.35 : opts.hint >= 1 ? 0.6 : 1;   // 힌트를 볼수록 XP는 줄지만 0은 아니다
+    addXP(Math.round((opts.isRetry ? 20 : 10) * confMul * hintMul));
+  }
   else addXP(2, true);
   checkBadges();
   if (window.haptic) haptic(ok ? 'ok' : 'no');
@@ -492,6 +503,8 @@ function askConfidence(pickIdx) {
 
 function answer(pickIdx, conf) {
   if (session.locked) return;
+  // 답을 고른 순간 레이스 시계를 멈춘다 (확신도 고르는 시간은 승부에서 뺀다)
+  if (window.ghostStopClock) window.ghostStopClock(session);
   // 확신도를 아직 안 물었으면 먼저 물어보기 (모르겠어요·모의고사·간단모드는 건너뜀)
   if (!conf && pickIdx !== -1 && session.mode !== 'exam' && !S.simpleMode && !session.pendingPick0) {
     session.pendingPick0 = true;
@@ -504,10 +517,13 @@ function answer(pickIdx, conf) {
   var g = getQuestion(item);
   var ok = pickIdx === g.q.answer;
   session.lastConf = conf || (pickIdx === -1 ? 'guess' : 'mid');
+  session.lastHint = session.hintLv || 0;
+  if (window.ghostAnswered) window.ghostAnswered(session, ok);
 
   recordAttempt(item.subjKey, item.ui, item.which, ok, {
     isRetry: item.isFollowup || item.isReview,
-    conf: session.lastConf
+    conf: session.lastConf,
+    hint: session.lastHint
   });
 
   if (!ok && session.mode !== 'exam' && !item.isFollowup && !item.isReview) {
@@ -532,6 +548,7 @@ function answer(pickIdx, conf) {
 /* ---------- 렌더: 홈 ---------- */
 function renderHome() {
   session = null;
+  if (window.ghostStopTimer) window.ghostStopTimer();
   var v = $('#view');
   if (!DATA.subjects.length) {
     v.innerHTML =
@@ -583,6 +600,25 @@ function renderHome() {
     '<div class="xp-bar"><i style="width:' + lvlPct + '%"></i></div>' +
     '<span class="xp-txt">' + (li.max ? 'MAX 레벨!' : S.xp + ' XP · 다음 레벨까지 ' + (li.span - li.cur) + ' XP') + '</span></div>';
 
+  // 홈에 다 펼쳐놓으면 "뭘 할지 몰라서 닫는다" — 급한 알림은 하나만 띄우고
+  // 나머지 메뉴는 "더 보기"로 접는다.
+  var topAlert = '';
+  var illN = Object.keys(S.illusion || {}).length;
+  if (illN) {
+    topAlert = '<div class="illusion-bar" id="illusionBar">🔴 <b>착각 구역 ' + illN + '개</b> — 안다고 생각했는데 틀린 문제예요. 시험에서 제일 위험해요!<span class="wg-go">바로 잡기 ▶</span></div>';
+  } else if (need) {
+    topAlert = '<div class="wrong-gauge" id="wrongGauge">' +
+      '<div class="wg-left"><b>❗ 아직 극복 못 한 문제 ' + need + '개</b>' +
+      '<div class="wg-sub">이것만 없애면 실력이 확 올라가요</div></div>' +
+      '<span class="wg-go">바로 풀기 ▶</span></div>';
+  }
+  // 기억 정원이 "복습할 개념 N개" 숫자를 대신한다 (정원이 없으면 숫자로 되돌린다)
+  var gardenBlock = window.gardenHtml ? window.gardenHtml() : '';
+  if (!gardenBlock && due > 0) {
+    gardenBlock = '<div class="wrong-gauge" id="wrongGauge"><div class="wg-left">' +
+      '<b>🔄 복습할 개념 ' + due + '개</b></div><span class="wg-go">복습 ▶</span></div>';
+  }
+
   v.innerHTML =
     '<div class="just-start" id="justStart">' +
     '<div class="js-title">▶ 여기부터 시작하세요</div>' +
@@ -598,43 +634,34 @@ function renderHome() {
     '<div id="ddayEditWrap"></div>' +
     '<div class="today-line">' +
     '<span class="today-pill" id="goalPill" title="클릭해서 하루 목표 바꾸기" style="cursor:pointer">🎯 오늘 <b>' + today.answered + ' / ' + (S.goal || 15) + '문제</b>' + (today.answered >= (S.goal || 15) ? ' 달성! ✨' : '') + '</span>' +
-    (due > 0 ? '<span class="today-pill">🔄 복습할 개념 <b>' + due + '개</b></span>' : '') +
     (streak > 1 ? '<span class="today-pill">🔥 <b>' + streak + '일</b> 연속 공부 중</span>' : '') +
     '</div>' +
     '</div>' +
 
     (window.crunchBannerHtml ? window.crunchBannerHtml() : '') +
     (window.installBarHtml ? window.installBarHtml() : '') +
-    ((function () {
-      var ill = Object.keys(S.illusion || {}).length;
-      return ill ? '<div class="illusion-bar" id="illusionBar">🔴 <b>착각 구역 ' + ill + '개</b> — 안다고 생각했는데 틀린 문제예요. 시험에서 제일 위험해요!<span class="wg-go">바로 잡기 ▶</span></div>' : '';
-    })()) +
-    (need ? '<div class="wrong-gauge" id="wrongGauge">' +
-      '<div class="wg-left"><b>❗ 아직 극복 못 한 문제 ' + need + '개</b>' +
-      '<div class="wg-sub">이것만 없애면 실력이 확 올라가요</div></div>' +
-      '<span class="wg-go">바로 풀기 ▶</span></div>' : '') +
-    (window.piggyHtml ? window.piggyHtml() : '') +
-    (window.journeyHeroHtml ? window.journeyHeroHtml() : '') +
-    (window.questCardHtml ? window.questCardHtml() : '') +
+    topAlert +
 
-    '<div class="section-title">다른 방법으로 공부하기</div>' +
-    '<div class="mode-grid">' +
+    '<div class="mode-grid mode-main">' +
     '<button class="btn btn-primary btn-big" id="btnRandom">▶ 오늘의 공부 시작<br><small style="font-weight:500">복습 우선 + 새 문제 ' + SET_SIZE + '개</small></button>' +
-    '<button class="btn btn-ghost btn-big" id="btnExam">📝 미니 모의고사<br><small style="font-weight:500">과목별 5문제, 합격 판정</small></button>' +
-    '<button class="btn ' + (need ? 'btn-warm' : 'btn-ghost') + ' btn-big" id="btnReview">📌 오답 복습' + (need ? ' (' + need + ')' : '') + '<br><small style="font-weight:500">틀린 개념 다시 확인</small></button>' +
-    '<button class="btn btn-ghost btn-big" id="btnLab">🧪 전기 실험실<br><small style="font-weight:500">만지면서 이해하는 물리</small></button>' +
-    '<button class="btn btn-boss btn-big" id="btnBoss">⚔️ 보스 레이드' + (Object.keys(S.bossDefeated || {}).length ? ' <small>(' + Object.keys(S.bossDefeated).length + '/5)</small>' : '') + '<br><small style="font-weight:500">문제로 보스와 전투!</small></button>' +
-    '<button class="btn btn-ghost btn-big" id="btnCodex">📐 공식 도감<br><small style="font-weight:500">공식을 수집하며 배우기</small></button>' +
-    '<button class="btn btn-warm btn-big" id="btnDojo">⚡ 계산 도장<br><small style="font-weight:500">풀이를 단계별로 조립!</small></button>' +
-    '<button class="btn btn-boss btn-big" id="btnGames">🎮 미니 게임<br><small style="font-weight:500">등반·소거법·버그헌트·빈칸</small></button>' +
+    '<button class="btn btn-ghost btn-big" id="btnJourney">🗺 여정 이어서<br><small style="font-weight:500">처음부터 순서대로 배우기</small></button>' +
+    '<button class="btn btn-boss btn-big" id="btnGames">🎮 미니 게임<br><small style="font-weight:500">짧게 한 판씩 놀면서</small></button>' +
     '</div>' +
 
-    '<details class="card strategy"><summary>🎯 합격 전략 (꼭 한 번 읽어보세요)</summary>' +
-    '<div class="pass-rule">합격 공식 = 5과목 평균 60점 이상 + 모든 과목 40점 이상</div>' +
-    '<p>100점을 받을 필요가 전혀 없어요. 과목당 20문제 중 <b>12개</b>씩만 맞히면 합격이고, 어려운 과목은 <b>8개(40점)</b>만 지켜도 돼요.</p>' +
-    '<p>추천 전략: 암기 과목인 <b>전기설비기술기준</b>에서 70~80점을 벌고, <b>전력공학·전기기기</b>에서 60점을 만들고, 계산이 어려운 <b>전기자기학·회로이론</b>은 과락(40점)만 피하면 합격이에요.</p>' +
-    '<p>이 앱의 사용법: 틀리면 해설과 개념 카드를 읽고, 잠시 후 나오는 <b>쌍둥이 확인 문제</b>를 맞혀서 "진짜 이해했는지" 확인하세요. 오답노트의 문제를 모두 ✅로 만드는 게 목표예요.</p>' +
-    '</details>' +
+    gardenBlock +
+    (window.questCardHtml ? window.questCardHtml() : '') +
+    (window.piggyHtml ? window.piggyHtml() : '') +
+
+    '<details class="card more-menu"><summary>➕ 다른 방법으로 공부하기 · 도구 · 과목별</summary>' +
+    '<div class="mode-grid">' +
+    '<button class="btn ' + (need ? 'btn-warm' : 'btn-ghost') + ' btn-big" id="btnReview">📌 오답 복습' + (need ? ' (' + need + ')' : '') + '<br><small style="font-weight:500">틀린 개념 다시 확인</small></button>' +
+    '<button class="btn btn-warm btn-big" id="btnDojo">⚡ 계산 도장<br><small style="font-weight:500">풀이를 단계별로 조립!</small></button>' +
+    '<button class="btn btn-boss btn-big" id="btnBoss">⚔️ 보스 레이드' + (Object.keys(S.bossDefeated || {}).length ? ' <small>(' + Object.keys(S.bossDefeated).length + '/5)</small>' : '') + '<br><small style="font-weight:500">문제로 보스와 전투!</small></button>' +
+    '<button class="btn btn-ghost btn-big" id="btnCodex">📐 공식 도감<br><small style="font-weight:500">공식을 수집하며 배우기</small></button>' +
+    '<button class="btn btn-ghost btn-big" id="btnLab">🧪 전기 실험실<br><small style="font-weight:500">만지면서 이해하는 물리</small></button>' +
+    '<button class="btn btn-ghost btn-big" id="btnExam">📝 미니 모의고사<br><small style="font-weight:500">과목별 5문제, 합격 판정</small></button>' +
+    '</div>' +
+    (window.journeyHeroHtml ? window.journeyHeroHtml() : '') +
 
     '<div class="section-title">나를 위한 것들</div>' +
     '<div class="tool-grid">' +
@@ -644,14 +671,24 @@ function renderHome() {
     '</div>' +
 
     '<div class="section-title">과목별 공부</div>' +
-    '<div class="subject-list">' + subjCards + '</div>';
+    '<div class="subject-list">' + subjCards + '</div>' +
+    '</details>' +
+
+    '<details class="card strategy"><summary>🎯 합격 전략 (꼭 한 번 읽어보세요)</summary>' +
+    '<div class="pass-rule">합격 공식 = 5과목 평균 60점 이상 + 모든 과목 40점 이상</div>' +
+    '<p>100점을 받을 필요가 전혀 없어요. 과목당 20문제 중 <b>12개</b>씩만 맞히면 합격이고, 어려운 과목은 <b>8개(40점)</b>만 지켜도 돼요.</p>' +
+    '<p>추천 전략: 암기 과목인 <b>전기설비기술기준</b>에서 70~80점을 벌고, <b>전력공학·전기기기</b>에서 60점을 만들고, 계산이 어려운 <b>전기자기학·회로이론</b>은 과락(40점)만 피하면 합격이에요.</p>' +
+    '<p>이 앱의 사용법: 틀리면 해설과 개념 카드를 읽고, 잠시 후 나오는 <b>쌍둥이 확인 문제</b>를 맞혀서 "진짜 이해했는지" 확인하세요. 오답노트의 문제를 모두 ✅로 만드는 게 목표예요.</p>' +
+    '</details>';
 
   $('#btnRandom').onclick = function () { startSession('random'); };
+  $('#btnJourney').onclick = function () { if (window.renderJourney) window.renderJourney(); };
   $('#btnExam').onclick = function () { startSession('exam'); };
   $('#btnReview').onclick = function () { startSession('review'); };
   $('#btnLab').onclick = function () { if (window.renderLab) window.renderLab(); };
   $('#btnBoss').onclick = function () { if (window.renderBossHub) window.renderBossHub(); };
   $('#btnDojo').onclick = function () { if (window.renderDojoHub) window.renderDojoHub(); };
+  $('#btnCodex').onclick = function () { if (window.renderCodex) window.renderCodex(); };
   $('#btnGames').onclick = function () { if (window.renderGames) window.renderGames(); };
   var js = $('#justStart');
   if (js) js.onclick = function () {
@@ -662,6 +699,7 @@ function renderHome() {
   if (window.bindInstallBar) window.bindInstallBar();
   var cbn = $('#crunchBanner'); if (cbn) cbn.onclick = function () { if (window.renderCrunch) window.renderCrunch(); };
   var wg = $('#wrongGauge'); if (wg) wg.onclick = function () { startSession('review'); };
+  var gc = $('#gardenCard'); if (gc) gc.onclick = function () { if (window.startGardenSession) window.startGardenSession(); };
   var ib = $('#illusionBar'); if (ib) ib.onclick = function () { startIllusionSession(); };
   $('#btnReport').onclick = function () { if (window.renderReport) window.renderReport(); };
   $('#btnLetter').onclick = function () { if (window.renderLetter) window.renderLetter(); };
@@ -750,6 +788,8 @@ function renderQuiz(pickedIdx) {
     banner = '<div class="followup-banner">🔁 다시 확인하는 문제예요.</div>';
   } else if (item.isReview) {
     banner = '<div class="review-banner">📌 오답노트 복습이에요. 이번에 맞히면 "극복 완료"가 돼요!</div>';
+  } else if (item.isGarden) {
+    banner = '<div class="garden-banner">🪴 물 주는 중 — 잊어버릴 때가 된 개념이에요. 맞히면 화분이 다시 싱싱해져요!</div>';
   }
   if (item.isEasy && !answered) {
     banner = '<div class="rescue-banner">💚 잠깐! 이 유형은 원래 어려워요. 숨 고르게 <b>이미 맞혔던 쉬운 문제</b>로 한 번 갈게요. 감 되찾고 가요!</div>';
@@ -758,14 +798,16 @@ function renderQuiz(pickedIdx) {
   var subjName = g.subj.name;
   var modeName = MODE_NAMES[session.mode] + (session.mode === 'subject' ? ' · ' + subjName : '');
 
+  var killed = (!answered && (session.hintLv || 0) >= 1 && session.hintKilled) ? session.hintKilled : [];
   var choicesHtml = g.q.choices.map(function (c, i) {
     var cls = 'choice';
+    var isKilled = killed.indexOf(i) >= 0;
     if (answered) {
       if (i === g.q.answer) cls += (i === pickedIdx ? ' picked-right' : ' reveal-right');
       else if (i === pickedIdx) cls += ' picked-wrong';
       else cls += ' dim';
-    }
-    return '<button class="' + cls + '" data-pick="' + i + '"' + (answered ? ' disabled' : '') + '>' +
+    } else if (isKilled) cls += ' killed';
+    return '<button class="' + cls + '" data-pick="' + i + '"' + (answered || isKilled ? ' disabled' : '') + '>' +
       '<span class="num">' + CIRCLED[i] + '</span><span>' + esc(c) + '</span></button>';
   }).join('');
 
@@ -777,7 +819,9 @@ function renderQuiz(pickedIdx) {
       '<div class="concept-box" style="margin-top:14px;margin-bottom:0">' +
       '<b class="cb-title">💡 개념 카드 — ' + esc(g.unit.topic) + '</b>' + esc(g.unit.concept) + '</div>';
     if (ok) {
-      var praise = item.isFollowup ? '🎉 극복 완료! 이제 이 개념은 사용자님 거예요.' :
+      var praise = session.lastHint >= 2 ? '💡 힌트를 보고 정답! 푸는 흐름을 익히는 게 먼저예요. 내일 힌트 없이 한 번 더 물어볼게요' :
+        session.lastHint >= 1 ? '✂️ 두 개 지우고 정답! 소거법도 어엿한 실력이에요' :
+        item.isFollowup ? '🎉 극복 완료! 이제 이 개념은 사용자님 거예요.' :
         (item.isReview ? '🎉 오답 극복 성공! 정말 잘했어요.' :
           (session.lastConf === 'sure' ? '💪 확신하고 정답! XP 2배 — 이게 진짜 아는 거예요' :
             session.lastConf === 'guess' ? '🎲 찍어서 맞혔네요! 운이 좋았지만 아직 내 것은 아니에요. 내일 다시 확인할게요' :
@@ -800,20 +844,32 @@ function renderQuiz(pickedIdx) {
 
   var conceptTop = isRetry ?
     '<div class="concept-box"><b class="cb-title">💡 아까 틀렸던 개념이에요 — 읽고 다시 풀어봐요</b>' + esc(g.unit.concept) + '</div>' : '';
+  // 💡 힌트: 1단계 선택지 2개 소거 → 2단계 개념 먼저 보기.
+  // 복습 문제는 개념이 이미 위에 떠 있으므로 1단계까지만, 모의고사는 없음.
+  var hintLv = session.hintLv || 0;
+  var maxHint = isRetry ? 1 : 2;
+  var hintBox = (!answered && hintLv >= 2) ?
+    '<div class="hint-box"><b class="cb-title">💡 힌트 — ' + esc(g.unit.topic) + '</b>' + esc(g.unit.concept) + '</div>' : '';
+  var hintBtn = (answered || session.mode === 'exam' || hintLv >= maxHint) ? '' :
+    '<button class="hint-btn" id="hintBtn">' +
+    (hintLv === 0 ? '💡 힌트 — 확실히 아닌 선택지 2개 지우기' : '💡 한 번 더 — 개념 먼저 보기') + '</button>';
   var dunnoHtml = answered ? '' :
-    '<div class="dunno-wrap"><button class="dunno-btn" id="dunnoBtn">🤷 모르겠어요 — 정답과 설명 보여주세요</button></div>';
+    '<div class="dunno-wrap">' + hintBtn +
+    '<button class="dunno-btn" id="dunnoBtn">🤷 모르겠어요 — 정답과 설명 보여주세요</button></div>';
 
   var timerHtml = session.mode === 'exam' ? '<span id="examTimer"></span> · ' : '';
   v.innerHTML =
     '<div class="quiz-head"><span class="quiz-mode">' + esc(modeName) + '</span>' +
     '<span class="quiz-progress">' + timerHtml + (session.idx + 1) + ' / ' + total + '</span></div>' +
     '<div class="qbar"><i style="width:' + Math.round((session.idx / Math.max(total, 1)) * 100) + '%"></i></div>' +
+    (!answered && window.ghostBarHtml ? window.ghostBarHtml(session) : '') +
     banner +
     '<div class="card">' +
     '<span class="topic-chip">' + esc(subjName) + ' · ' + esc(g.unit.topic) + '</span>' +
     conceptTop +
     '<div class="qtext">' + esc(g.q.q) + '</div>' +
     '<div class="choices">' + choicesHtml + '</div>' +
+    hintBox +
     dunnoHtml +
     verdictHtml +
     (answered ? '<div class="quiz-next"><button class="btn btn-primary" id="nextBtn">다음 ➜</button></div>' : '') +
@@ -825,7 +881,21 @@ function renderQuiz(pickedIdx) {
       b.onclick = function () { answer(parseInt(b.getAttribute('data-pick'), 10)); };
     });
     $('#dunnoBtn').onclick = function () { answer(-1); };
+    var hb = $('#hintBtn');
+    if (hb) hb.onclick = function () {
+      session.hintLv = (session.hintLv || 0) + 1;
+      if (session.hintLv === 1 && !session.hintKilled) {
+        var wrongIdx = [];
+        for (var i = 0; i < g.q.choices.length; i++) if (i !== g.q.answer) wrongIdx.push(i);
+        session.hintKilled = shuffle(wrongIdx).slice(0, 2);
+      }
+      if (window.haptic) haptic('ok');
+      renderQuiz();
+    };
+    if (window.ghostQuestionShown) window.ghostQuestionShown(session);
+    if (window.ghostStartTimer) window.ghostStartTimer(session);
   } else {
+    if (window.ghostStopTimer) window.ghostStopTimer();
     $('#nextBtn').onclick = advance;
     bindReasonTags();
   }
@@ -868,8 +938,11 @@ function renderSetResult() {
       '<span>' + esc(subj ? subj.name : '') + ' · ' + esc(r.topic) + (r.item.isFollowup ? ' <small>(확인 문제)</small>' : '') + '</span></div>';
   }).join('');
 
+  var ghostHtml = window.ghostFinish ? window.ghostFinish(session) : '';
+
   v.innerHTML =
     goalBannerHtml() +
+    ghostHtml +
     '<div class="card result-hero">' +
     '<div class="big">' + right + ' / ' + list.length + '</div>' +
     '<div class="msg">' + esc(msg) + '</div>' +
