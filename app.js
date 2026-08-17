@@ -1533,6 +1533,24 @@ document.querySelectorAll('.nav-btn').forEach(function (b) {
 });
 $('#logoHome').onclick = function () { if (confirmLeave()) renderHome(); };
 
+/* 밝게 / 어둡게 — 기본은 어두운 게임 톤, 밝은 데서 레슨 읽을 때를 위해 전환 가능 */
+function currentTheme() { return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+function paintThemeBtn() {
+  var b = $('#themeBtn');
+  if (b) b.textContent = currentTheme() === 'light' ? '☀️' : '🌙';
+}
+var themeBtn = $('#themeBtn');
+if (themeBtn) {
+  themeBtn.onclick = function () {
+    var next = currentTheme() === 'light' ? 'dark' : 'light';
+    if (next === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    else document.documentElement.removeAttribute('data-theme');
+    try { localStorage.setItem('jeongi-theme', next); } catch (e) { }
+    paintThemeBtn();
+  };
+  paintThemeBtn();
+}
+
 /* 키보드 단축키: 1~4 답 선택, 0 모르겠어요, Enter/Space 다음 */
 document.addEventListener('keydown', function (e) {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;

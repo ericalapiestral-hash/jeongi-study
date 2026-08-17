@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#3457d5">
+<meta name="theme-color" content="#0a0d16">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="전기산업기사">
 <meta name="description" content="전기산업기사 필기 - 기초부터 게임처럼 배우는 학습 앱">
 <title>전기산업기사 필기 스터디</title>
@@ -17,12 +17,18 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167.png">
 <link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="style.css?v=20">
+<script>
+// 테마는 첫 페인트 전에 정해야 화면이 번쩍이지 않는다. 그래서 전체 저장소가 아니라
+// 작은 키 하나만 따로 읽는다 (기본값은 어두운 테마).
+try { if (localStorage.getItem('jeongi-theme') === 'light') document.documentElement.setAttribute('data-theme', 'light'); } catch (e) { }
+</script>
 </head>
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="logo" id="logoHome" title="홈으로">⚡ <span class="logo-full">전기산업기사</span> <span class="logo-sub">필기 스터디</span></div>
+    <div class="logo" id="logoHome" title="기지로">⚡ <span class="logo-full">전기산업기사</span> <span class="logo-sub">필기 스터디</span></div>
+    <button class="theme-btn" id="themeBtn" title="밝게 / 어둡게">🌙</button>
     <nav id="mainNav">
       <button class="nav-btn" data-nav="home">🏠 홈</button>
       <button class="nav-btn" data-nav="crunch">🔥 벼락치기</button>

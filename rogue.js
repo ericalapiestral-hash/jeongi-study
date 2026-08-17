@@ -604,6 +604,11 @@ function renderRogueBattle() {
     });
   } else {
     $('#rgNext').onclick = rgTurnEnd;
+    // 명중하면 적이 한 번 흔들린다
+    if (b.lastDmg > 0) {
+      var ep = document.querySelector('.rg-enemy');
+      if (ep) { ep.classList.add('hit'); setTimeout(function () { ep.classList.remove('hit'); }, 320); }
+    }
   }
   if (window.updateBadge) updateBadge();
   window.scrollTo(0, 0);
