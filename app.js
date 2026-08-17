@@ -621,15 +621,34 @@ function renderHome() {
       '<b>🔄 복습할 개념 ' + due + '개</b></div><span class="wg-go">복습 ▶</span></div>';
   }
 
-  v.innerHTML =
-    '<div class="just-start" id="justStart">' +
-    '<div class="js-title">▶ 여기부터 시작하세요</div>' +
-    '<div class="js-sub">전기설비기술기준 · 외우기만 하면 되는 과목이에요<br>계산 없어요. 틀려도 괜찮아요 — 틀리면서 배우는 거예요</div>' +
-    '<div class="js-go">문제 풀기 시작 ▶</div>' +
-    '</div>' +
+  // ===== 기지(작전 본부) =====
+  // 앱을 켜면 곧바로 게임이다. 진행 중인 작전이 있으면 그게 최상단,
+  // 없으면 "출격"이 최상단. 나머지 공부 기능은 전부 "기지 시설"로 들어간다.
+  var zones = window.rogueZones ? window.rogueZones() : [];
+  var restored = window.rogueRestoredCount ? window.rogueRestoredCount() : 0;
+  var run = S.rogue;
+  var runZoneName = run ? ((subjectByKey(run.zone) || {}).name || '') : '';
 
-    '<div class="card hero">' +
-    '<h1>오늘도 잘 왔어요! 👋</h1>' +
+  var opHtml = run ?
+    '<div class="op-card resume" id="opGo">' +
+    '<div class="op-tag">작전 진행 중</div>' +
+    '<div class="op-title">' + esc(runZoneName) + ' · ' + run.floor + '층</div>' +
+    '<div class="op-sub">체력 ' + run.hp + '/' + run.maxHp + ' · 덱 ' + run.deck.length + '장' +
+    (run.relics.length ? ' · 유물 ' + run.relics.length + '개' : '') + '</div>' +
+    '<div class="op-go">이어하기 ▶</div></div>'
+    :
+    '<div class="op-card" id="opGo">' +
+    '<div class="op-tag">오늘의 작전</div>' +
+    '<div class="op-title">⚡ 전력망 복구하러 가기</div>' +
+    '<div class="op-sub">구역을 하나 골라 8개 층을 오르며 문제로 싸워요<br>' +
+    '복구한 구역 <b>' + restored + ' / ' + Math.max(zones.length, 1) + '</b></div>' +
+    '<div class="op-go">출격 ▶</div></div>';
+
+  v.innerHTML =
+    opHtml +
+
+    '<div class="card hero base-hero">' +
+    '<h1>기지에 온 걸 환영해요 ⚡</h1>' +
     '<p class="cheer">' + esc(todayCheer()) + '</p>' +
     levelHtml +
     ddayHtml +
@@ -644,19 +663,14 @@ function renderHome() {
     (window.installBarHtml ? window.installBarHtml() : '') +
     topAlert +
 
-    '<div class="mode-grid mode-main">' +
-    '<button class="btn btn-primary btn-big" id="btnRandom">▶ 오늘의 공부 시작<br><small style="font-weight:500">복습 우선 + 새 문제 ' + SET_SIZE + '개</small></button>' +
-    '<button class="btn btn-ghost btn-big" id="btnJourney">🗺 여정 이어서<br><small style="font-weight:500">처음부터 순서대로 배우기</small></button>' +
-    '<button class="btn btn-boss btn-big" id="btnRogue">🎴 전력망 탐험' +
-    (S.rogue ? ' <small>(' + S.rogue.floor + '층 진행 중)</small>' : '') +
-    '<br><small style="font-weight:500">카드를 모아 8개 층을 오르는 모험</small></button>' +
-    '</div>' +
-
     gardenBlock +
     (window.questCardHtml ? window.questCardHtml() : '') +
     (window.piggyHtml ? window.piggyHtml() : '') +
 
-    '<details class="card more-menu"><summary>➕ 다른 방법으로 공부하기 · 도구 · 과목별</summary>' +
+    '<details class="card more-menu"><summary>🏗 기지 시설 — 혼자 훈련하기 · 도구 · 과목별</summary>' +
+    '<div class="mode-grid">' +
+    '<button class="btn btn-primary btn-big" id="btnRandom">▶ 오늘의 공부 (기본 훈련)<br><small style="font-weight:500">복습 우선 + 새 문제 ' + SET_SIZE + '개</small></button>' +
+    '<button class="btn btn-ghost btn-big" id="btnJourney">🗺 여정<br><small style="font-weight:500">처음부터 순서대로 배우기</small></button>' +
     '<div class="mode-grid">' +
     '<button class="btn ' + (need ? 'btn-warm' : 'btn-ghost') + ' btn-big" id="btnReview">📌 오답 복습' + (need ? ' (' + need + ')' : '') + '<br><small style="font-weight:500">틀린 개념 다시 확인</small></button>' +
     '<button class="btn btn-warm btn-big" id="btnDojo">⚡ 계산 도장<br><small style="font-weight:500">풀이를 단계별로 조립!</small></button>' +
@@ -688,7 +702,14 @@ function renderHome() {
 
   $('#btnRandom').onclick = function () { startSession('random'); };
   $('#btnJourney').onclick = function () { if (window.renderJourney) window.renderJourney(); };
-  $('#btnRogue').onclick = function () { if (window.renderRogue) window.renderRogue(); };
+  $('#opGo').onclick = function () {
+    if (!window.renderRogue) { startSession('random'); return; }
+    // 진행 중인 작전이 있으면 곧바로 그 자리로, 없으면 구역 선택으로
+    if (S.rogue) {
+      if (typeof actx === 'function') actx();
+      window.rogueResume();
+    } else window.renderRogue();
+  };
   $('#btnExam').onclick = function () { startSession('exam'); };
   $('#btnReview').onclick = function () { startSession('review'); };
   $('#btnLab').onclick = function () { if (window.renderLab) window.renderLab(); };
@@ -1034,13 +1055,18 @@ function lessonFor(subjKey, ui) {
   for (var i = 0; i < arr.length; i++) if (arr[i].ui === ui) return arr[i];
   return null;
 }
-function startLesson(subjKey, ui, journey) {
+function startLesson(subjKey, ui, journey, rogue) {
   var l = lessonFor(subjKey, ui);
   if (!l || !l.steps || !l.steps.length) { toast('이 개념의 레슨은 아직 준비 중이에요!'); return; }
   session = null;
-  lessonRun = { subjKey: subjKey, ui: ui, idx: 0, picks: {}, steps: l.steps, journey: !!journey };
+  lessonRun = { subjKey: subjKey, ui: ui, idx: 0, picks: {}, steps: l.steps, journey: !!journey, rogue: !!rogue };
   renderLesson();
 }
+window.startLesson = startLesson;
+window.lessonExists = function (subjKey, ui) {
+  var l = lessonFor(subjKey, ui);
+  return !!(l && l.steps && l.steps.length);
+};
 function startUnitQuiz(subjKey, ui) {
   lessonRun = null;
   session = {
@@ -1104,13 +1130,19 @@ function renderLesson() {
     if (lessonRun.journey && window.journeyMarkTaught) window.journeyMarkTaught(lessonRun.subjKey, lessonRun.ui);
     footer = '<div class="card result-hero" style="padding:26px 20px">' +
       '<div style="font-size:2rem">🎓</div>' +
-      '<div style="font-weight:800;font-size:1.1rem;margin-top:6px">' + (lessonRun.journey ? '개념 배우기 완료!' : '레슨 완료!') + ' ' + (firstTime ? '+15 XP' : '(복습)') + '</div>' +
-      '<div class="msg">' + (lessonRun.journey ? '이제 방금 배운 걸 바로 문제로 확인해요. 맞히면 다음 단계가 열려요!' : '배운 걸 바로 문제로 확인하면 기억에 2배로 남아요!') + '</div>' +
+      '<div style="font-weight:800;font-size:1.1rem;margin-top:6px">' +
+      (lessonRun.rogue ? '설계도를 익혔어요!' : lessonRun.journey ? '개념 배우기 완료!' : '레슨 완료!') +
+      ' ' + (firstTime ? '+15 XP' : '(복습)') + '</div>' +
+      '<div class="msg">' + (lessonRun.rogue ? '이 지식이 카드가 되어 덱에 들어가요.' :
+        lessonRun.journey ? '이제 방금 배운 걸 바로 문제로 확인해요. 맞히면 다음 단계가 열려요!' :
+          '배운 걸 바로 문제로 확인하면 기억에 2배로 남아요!') + '</div>' +
       '<div class="result-actions">' +
-      (lessonRun.journey ?
-        '<button class="btn btn-primary btn-big" id="lJourneyQ">▶ 배운 걸로 문제 풀기</button>' :
-        '<button class="btn btn-primary" id="lQuiz">✏️ 이 개념 문제로 확인</button>' +
-        '<button class="btn btn-ghost" id="lMap">🗺 맵으로</button>') +
+      (lessonRun.rogue ?
+        '<button class="btn btn-primary btn-big" id="lRogue">▶ 작전으로 복귀</button>' :
+        lessonRun.journey ?
+          '<button class="btn btn-primary btn-big" id="lJourneyQ">▶ 배운 걸로 문제 풀기</button>' :
+          '<button class="btn btn-primary" id="lQuiz">✏️ 이 개념 문제로 확인</button>' +
+          '<button class="btn btn-ghost" id="lMap">🗺 맵으로</button>') +
       '</div></div>';
   } else {
     var cur = steps[lessonRun.idx];
@@ -1128,7 +1160,9 @@ function renderLesson() {
     '<div class="l-steps">' + bubbles + '</div></div>' + footer;
 
   if (done) {
-    if (lessonRun.journey) {
+    if (lessonRun.rogue) {
+      $('#lRogue').onclick = function () { if (window.rogueLessonDone) window.rogueLessonDone(); };
+    } else if (lessonRun.journey) {
       $('#lJourneyQ').onclick = function () { window.journeyPractice(lessonRun.subjKey, lessonRun.ui); };
     } else {
       $('#lQuiz').onclick = function () { startUnitQuiz(lessonRun.subjKey, lessonRun.ui); };

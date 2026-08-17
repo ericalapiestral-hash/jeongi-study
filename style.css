@@ -1343,3 +1343,61 @@ main { flex: 1; width: 100%; max-width: 880px; margin: 0 auto; padding: 24px 20p
   .rg-end-grid { grid-template-columns: repeat(4, 1fr); }
   .rg-nodes { grid-template-columns: 1fr 1fr; }
 }
+
+/* ---------- 기지: 출격 카드 (홈 최상단) ---------- */
+.op-card {
+  background: linear-gradient(150deg, #24378f, #3457d5 55%, #4a74e8);
+  color: #fff; border-radius: var(--radius); padding: 20px 22px;
+  margin-bottom: 14px; cursor: pointer; position: relative; overflow: hidden;
+  box-shadow: 0 6px 20px rgba(36, 55, 143, .28); transition: transform .15s, box-shadow .15s;
+}
+.op-card::after {
+  content: '⚡'; position: absolute; right: -6px; bottom: -18px;
+  font-size: 5.5rem; opacity: .13; pointer-events: none;
+}
+.op-card:hover { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(36, 55, 143, .34); }
+.op-card:active { transform: scale(.99); }
+.op-card.resume { background: linear-gradient(150deg, #7a4510, #b9761c 55%, #d9932c); box-shadow: 0 6px 20px rgba(122, 69, 16, .3); }
+.op-card.resume::after { content: '🎮'; }
+.op-tag {
+  display: inline-block; background: rgba(255, 255, 255, .22); border-radius: 99px;
+  padding: 3px 11px; font-size: .74rem; font-weight: 800; letter-spacing: .5px;
+}
+.op-title { font-size: 1.3rem; font-weight: 800; margin-top: 8px; }
+.op-sub { font-size: .88rem; opacity: .92; margin-top: 4px; line-height: 1.55; }
+.op-go { margin-top: 12px; font-weight: 800; font-size: 1rem; }
+.base-hero h1 { font-size: 1.2rem; }
+
+/* ---------- 구역(과목) 선택 ---------- */
+.rg-zones { display: grid; gap: 10px; margin-bottom: 14px; }
+.rg-zone {
+  display: flex; align-items: center; gap: 13px; cursor: pointer;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 17px; box-shadow: var(--shadow); transition: all .15s;
+}
+.rg-zone:hover { transform: translateY(-2px); border-color: var(--brand); background: var(--brand-soft); }
+.rg-zone.done { background: linear-gradient(160deg, #f4fbf7, #eaf7f0); border-color: #b9e6d0; }
+.rz-icon { font-size: 1.7rem; }
+.rz-body { flex: 1; min-width: 0; }
+.rz-name { font-weight: 800; }
+.rz-tag {
+  font-size: .72rem; font-weight: 800; color: var(--good);
+  background: var(--good-soft); border-radius: 99px; padding: 2px 8px; margin-left: 4px;
+}
+.rz-sub { font-size: .83rem; color: var(--ink-soft); }
+.rz-bar { height: 6px; background: var(--bg); border-radius: 99px; margin-top: 6px; overflow: hidden; }
+.rz-bar i { display: block; height: 100%; background: var(--brand); border-radius: 99px; }
+.rz-go { color: var(--brand); font-weight: 800; white-space: nowrap; font-size: .9rem; }
+
+.rg-resume {
+  display: flex; align-items: center; gap: 10px; justify-content: space-between;
+  background: var(--warn-soft); border: 1px solid #ecd9a4; border-radius: 12px;
+  padding: 12px 16px; margin-bottom: 12px; cursor: pointer; flex-wrap: wrap;
+}
+.rg-resume:hover { border-color: var(--warn); }
+.rg-lesson-topic {
+  font-weight: 800; font-size: 1.05rem; color: var(--brand-deep);
+  background: var(--brand-soft); border-radius: 12px; padding: 12px; margin: 12px 0;
+}
+
+@media (min-width: 560px) { .rg-zones { grid-template-columns: 1fr 1fr; } }

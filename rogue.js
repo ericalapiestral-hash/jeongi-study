@@ -41,22 +41,23 @@ var RELIC_POOL = ['battery', 'glove', 'ruler', 'medal', 'lamp', 'magnet', 'fuse'
 
 /* ---------- 층 구성 ---------- */
 var FLOOR_PLAN = [
-  ['battle', 'battle'],
+  ['battle', 'lesson'],
   ['battle', 'rest'],
-  ['battle', 'treasure'],
+  ['lesson', 'treasure'],
   ['elite', 'battle'],
   ['rest', 'shop'],
   ['battle', 'elite'],
-  ['treasure', 'rest'],
+  ['lesson', 'treasure'],
   ['boss']
 ];
 var NODE_INFO = {
-  battle: { icon: '⚔️', name: '전투', desc: '문제를 풀어 적을 쓰러뜨린다' },
-  elite: { icon: '☠️', name: '강적', desc: '더 강하지만 유물을 준다' },
-  boss: { icon: '👑', name: '최종 관문', desc: '이 층을 넘으면 탐험 성공' },
-  rest: { icon: '🔥', name: '모닥불', desc: '체력을 회복하거나 덱을 정리한다' },
-  treasure: { icon: '🎁', name: '보물', desc: '유물을 하나 얻는다' },
-  shop: { icon: '🏪', name: '상점', desc: '모은 전력으로 카드를 산다' }
+  battle: { icon: '⚔️', name: '고장 구간', desc: '문제를 풀어 복구한다' },
+  elite: { icon: '☠️', name: '중대 사고', desc: '더 힘들지만 유물을 준다' },
+  boss: { icon: '👑', name: '주 변전소', desc: '이 층을 넘으면 구역 복구 완료' },
+  rest: { icon: '🔥', name: '작업 캠프', desc: '체력을 회복하거나 덱을 정리한다' },
+  treasure: { icon: '🎁', name: '자재 창고', desc: '유물을 하나 얻는다' },
+  shop: { icon: '🏪', name: '자재상', desc: '모은 전력으로 카드를 산다' },
+  lesson: { icon: '📖', name: '설계도실', desc: '이론을 배우고 카드를 얻는다' }
 };
 
 var ENEMY_NAMES = {
@@ -70,31 +71,68 @@ var ENEMY_NAMES = {
 function rgSubjects() {
   return (typeof examSubjects === 'function' ? examSubjects() : DATA.subjects) || [];
 }
-function rgEnemyFor(floor, kind) {
-  var subs = rgSubjects();
-  if (!subs.length) return null;
-  var subj = subs[Math.floor(Math.random() * subs.length)];
-  var names = ENEMY_NAMES[subj.key] || [subj.name + ' 수호자'];
-  var nm = names[Math.floor(Math.random() * names.length)];
+
+/* 적은 언제나 "이번 작전 구역(과목)"에서 나온다 — 런 하나가 한 과목 집중 학습이 되도록 */
+function rgEnemyFor(kind) {
+  var r = rgRun();
+  var subj = subjectByKey(r.zone);
+  if (!subj) { var subs = rgSubjects(); subj = subs[0]; }
   var hp = kind === 'boss' ? 42 : kind === 'elite' ? 26 : 15;
   var bite = kind === 'battle' ? 1 : 2;
-  var icon = kind === 'boss' ? '👑' : kind === 'elite' ? '☠️' : '⚡';
+  var nm, icon;
+  if (kind === 'boss') {
+    var boss = (window.BOSSES || []).filter(function (b) { return b.key === subj.key; })[0];
+    nm = boss ? boss.name : subj.name + ' 주 변전소';
+    icon = boss ? boss.emoji : '👑';
+  } else {
+    var names = ENEMY_NAMES[subj.key] || [subj.name + ' 고장'];
+    nm = names[Math.floor(Math.random() * names.length)];
+    icon = kind === 'elite' ? '☠️' : '⚡';
+  }
   return { subjKey: subj.key, subjName: subj.name, name: nm, hp: hp, maxHp: hp, bite: bite, icon: icon, kind: kind };
 }
+
+/* ---------- 구역(과목) ---------- */
+function rgMeta() {
+  if (!S.rogueMeta) S.rogueMeta = { zones: {}, maxHpBonus: 0 };
+  if (!S.rogueMeta.zones) S.rogueMeta.zones = {};
+  return S.rogueMeta;
+}
+window.rogueZones = function () {
+  var m = rgMeta();
+  return rgSubjects().map(function (s) {
+    var z = m.zones[s.key] || { clears: 0, best: 0 };
+    var st = (typeof subjectStats === 'function') ? subjectStats(s) : { attempted: 0, total: 1 };
+    return {
+      key: s.key, name: s.name, clears: z.clears || 0, best: z.best || 0,
+      pct: Math.round(st.attempted / Math.max(st.total, 1) * 100)
+    };
+  });
+};
+window.rogueRestoredCount = function () {
+  var m = rgMeta(), n = 0;
+  for (var k in m.zones) if (m.zones[k].clears > 0) n++;
+  return n;
+};
 
 /* ---------- 런 상태 ---------- */
 function rgRun() { return S.rogue; }
 function rgSave() { saveState(); }
 
-window.rogueStart = function () {
+window.rogueStart = function (zoneKey) {
   if (typeof actx === 'function') actx();       // 사용자 제스처에서 오디오 활성화
   session = null;
+  var subs = rgSubjects();
+  if (!zoneKey && subs.length) zoneKey = subs[0].key;
+  var m = rgMeta();
+  var maxHp = 6 + (m.maxHpBonus || 0);
   S.rogue = {
-    floor: 1, hp: 6, maxHp: 6, power: 0,
+    zone: zoneKey,
+    floor: 1, hp: maxHp, maxHp: maxHp, power: 0,
     deck: START_DECK.slice(), relics: [],
     draw: [], hand: [], discard: [],
     node: null, battle: null,
-    cleared: 0, correct: 0, total: 0,
+    cleared: 0, correct: 0, total: 0, lessons: 0,
     fuseUsed: false, offers: null
   };
   S.rogueStats = S.rogueStats || { runs: 0, clears: 0, bestFloor: 0 };
@@ -132,6 +170,7 @@ function rgTopHtml(r) {
   return '<div class="rg-top">' +
     '<div class="rg-hearts">' + rgHeartsHtml(r) + '</div>' +
     '<div class="rg-meta">' +
+    '<span class="rg-chip">📍 ' + esc((subjectByKey(r.zone) || {}).name || '') + '</span>' +
     '<span class="rg-chip">🏔 ' + r.floor + ' / ' + FLOOR_PLAN.length + '층</span>' +
     '<span class="rg-chip">⚡ ' + r.power + '</span>' +
     '<span class="rg-chip">🃏 ' + r.deck.length + '</span>' +
@@ -150,43 +189,68 @@ function rgCardHtml(id, extra, disabled) {
     '<div class="rc-desc">' + esc(c.desc) + '</div></div>';
 }
 
-/* ---------- 허브 ---------- */
+/* ---------- 작전 브리핑: 어느 구역으로 출격할까 ---------- */
 window.renderRogue = function () {
   session = null;
   if (window.ghostStopTimer) window.ghostStopTimer();
-  var st = S.rogueStats || { runs: 0, clears: 0, bestFloor: 0 };
+  var m = rgMeta();
   var r = rgRun();
-  var v = $('#view');
-  v.innerHTML =
+  var zones = window.rogueZones();
+
+  var zoneCards = zones.map(function (z) {
+    var done = z.clears > 0;
+    return '<div class="rg-zone' + (done ? ' done' : '') + '" data-zone="' + esc(z.key) + '">' +
+      '<div class="rz-icon">' + (done ? '🟢' : '🔌') + '</div>' +
+      '<div class="rz-body">' +
+      '<div class="rz-name">' + esc(z.name) + (done ? ' <span class="rz-tag">복구됨 ×' + z.clears + '</span>' : '') + '</div>' +
+      '<div class="rz-sub">' + (done ? '다시 들어가면 더 깊이 복습해요' :
+        (z.best ? '최고 ' + z.best + '층까지 갔어요' : '아직 복구 안 된 구역이에요')) + '</div>' +
+      '<div class="rz-bar"><i style="width:' + z.pct + '%"></i></div>' +
+      '</div><div class="rz-go">출격 ▶</div></div>';
+  }).join('');
+
+  $('#view').innerHTML =
+    (r ? '<div class="rg-resume" id="rgResume">' +
+      '<div><b>🎮 진행 중인 작전이 있어요</b>' +
+      '<div class="muted">' + esc((subjectByKey(r.zone) || {}).name || '') + ' · ' + r.floor + '층 · 체력 ' + r.hp + '</div></div>' +
+      '<span class="wg-go">이어하기 ▶</span></div>' : '') +
+
     '<div class="card rg-hero">' +
-    '<div class="rg-hero-icon">⚡</div>' +
-    '<h2>전력망 탐험</h2>' +
-    '<p class="muted">8개 층을 올라가며 문제로 싸우고, 이기면 <b>도움 카드</b>를 얻어요.<br>' +
-    '여기서 푼 문제도 <b>전부 복습 기록에 남아요</b> — 놀아도 공부가 돼요.</p>' +
+    '<div class="rg-hero-icon">🗺</div>' +
+    '<h2>어느 구역을 복구할까요?</h2>' +
+    '<p class="muted">구역 하나가 과목 하나예요. 그 구역의 문제·이론만 나오니까 <b>한 과목을 집중해서 끝낼 수 있어요.</b></p>' +
     '<div class="rg-stat-line">' +
-    '<span>탐험 ' + st.runs + '회</span><span>성공 ' + st.clears + '회</span>' +
-    '<span>최고 ' + (st.bestFloor || 0) + '층</span></div>' +
-    (r ? '<button class="btn btn-primary btn-big" id="rgResume">▶ ' + r.floor + '층부터 이어하기</button>' +
-      '<button class="btn btn-ghost" id="rgNew">처음부터 새로 시작</button>'
-      : '<button class="btn btn-primary btn-big" id="rgNew">▶ 탐험 시작하기</button>') +
+    '<span>복구한 구역 ' + window.rogueRestoredCount() + ' / ' + zones.length + '</span>' +
+    '<span>최대 체력 ❤️ ' + (6 + (m.maxHpBonus || 0)) + '</span></div>' +
     '</div>' +
-    '<div class="card">' +
-    '<b>가지고 시작하는 카드</b>' +
+    '<div class="rg-zones">' + zoneCards + '</div>' +
+    '<div class="card"><b>가지고 시작하는 카드</b>' +
     '<div class="rg-hand rg-preview">' + START_DECK.filter(function (x, i, a) { return a.indexOf(x) === i; })
       .map(function (id) { return rgCardHtml(id); }).join('') + '</div>' +
-    '<p class="muted" style="margin-top:8px">체력 ❤️ 6으로 시작해요. 틀리면 체력이 줄고, 0이 되면 탐험이 끝나요 — ' +
-    '하지만 <b>XP도 복습 기록도 그대로 남아요.</b> 잃는 건 없어요.</p>' +
-    '</div>';
-  var nw = $('#rgNew'); if (nw) nw.onclick = function () {
-    if (r && !confirm('진행 중인 탐험이 사라져요. 새로 시작할까요?')) return;
-    window.rogueStart();
-  };
-  var rs = $('#rgResume'); if (rs) rs.onclick = function () {
-    if (typeof actx === 'function') actx();
-    if (r.battle) renderRogueBattle(); else if (r.node) rgEnterNode(r.node, true); else renderRogueMap();
-  };
+    '<p class="muted" style="margin-top:8px">틀리면 체력이 줄고 0이 되면 작전이 끝나요 — 하지만 ' +
+    '<b>XP도 복습 기록도 그대로 남아요.</b> 잃는 건 없어요.</p></div>';
+
+  document.querySelectorAll('[data-zone]').forEach(function (el) {
+    el.onclick = function () {
+      var key = el.getAttribute('data-zone');
+      if (r && !confirm('진행 중인 작전이 사라져요. 새로 시작할까요?')) return;
+      window.rogueStart(key);
+    };
+  });
+  var rs = $('#rgResume'); if (rs) rs.onclick = window.rogueResume;
   if (window.updateBadge) updateBadge();
   window.scrollTo(0, 0);
+};
+
+/* 진행 중인 작전의 정확한 지점으로 복귀 */
+window.rogueResume = function () {
+  var r = rgRun();
+  if (!r) { window.renderRogue(); return; }
+  if (typeof actx === 'function') actx();
+  session = null;
+  if (r.battle) renderRogueBattle();
+  else if (r.node) rgEnterNode(r.node, true);
+  else renderRogueMap();
 };
 
 /* ---------- 지도 (층 선택) ---------- */
@@ -246,9 +310,30 @@ function renderRogueMap() {
 
 function rgMakeNode(kind) {
   if (kind === 'battle' || kind === 'elite' || kind === 'boss') {
-    return { type: kind, enemy: rgEnemyFor(0, kind) };
+    return { type: kind, enemy: rgEnemyFor(kind) };
+  }
+  if (kind === 'lesson') {
+    var u = rgNextLessonUnit();
+    // 이 구역 레슨을 다 배웠으면 자재 창고로 대체한다
+    return u ? { type: 'lesson', ui: u.ui, topic: u.topic, review: u.review } : { type: 'treasure' };
   }
   return { type: kind };
+}
+
+/* 이번 구역에서 아직 안 배운 레슨을 우선, 없으면 복습용으로 하나 */
+function rgNextLessonUnit() {
+  var r = rgRun();
+  var subj = subjectByKey(r.zone);
+  if (!subj) return null;
+  var fresh = null, any = null;
+  subj.units.forEach(function (u, ui) {
+    if (!window.lessonExists || !window.lessonExists(subj.key, ui)) return;
+    if (!any) any = { ui: ui, topic: u.topic, review: true };
+    if (fresh) return;
+    var lp = S.lessonProg[unitKeyOf(subj.key, ui)];
+    if (!lp || !lp.done) fresh = { ui: ui, topic: u.topic, review: false };
+  });
+  return fresh || any;
 }
 
 function rgShowDeck() {
@@ -277,9 +362,40 @@ function rgEnterNode(nd, resuming) {
   if (nd.type === 'rest') { renderRogueRest(); return; }
   if (nd.type === 'treasure') { renderRogueTreasure(); return; }
   if (nd.type === 'shop') { renderRogueShop(); return; }
+  if (nd.type === 'lesson') { renderRogueLesson(); return; }
   if (!resuming || !rgRun().battle) rgStartBattle(nd.enemy);
   renderRogueBattle();
 }
+
+/* ---------- 📖 설계도실 (이론 레슨) ---------- */
+function renderRogueLesson() {
+  var r = rgRun(), nd = r.node;
+  $('#view').innerHTML =
+    rgTopHtml(r) +
+    '<div class="card rg-rest"><div class="rg-hero-icon">📖</div>' +
+    '<b style="font-size:1.1rem">설계도실</b>' +
+    '<p class="muted">' + (nd.review ? '이 구역 설계도는 이미 다 익혔어요. 하나를 다시 펴 볼까요?' :
+      '아직 안 본 설계도가 있어요. 읽고 나면 <b>카드 한 장</b>을 얻어요.') + '</p>' +
+    '<div class="rg-lesson-topic">' + esc(nd.topic) + '</div>' +
+    '<button class="btn btn-primary btn-big" id="rgLearn">📖 설계도 읽기' +
+    (nd.review ? '' : ' <small>(+15 XP)</small>') + '</button>' +
+    '<button class="btn btn-ghost" id="rgSkipLesson">그냥 지나가기</button>' +
+    '</div>';
+  $('#rgLearn').onclick = function () {
+    if (window.startLesson) window.startLesson(r.zone, nd.ui, false, true);
+  };
+  $('#rgSkipLesson').onclick = function () { rgNextFloor(); };
+  window.scrollTo(0, 0);
+}
+
+/* 레슨을 끝내고 작전으로 복귀 — 카드 한 장을 보상으로 준다 */
+window.rogueLessonDone = function () {
+  var r = rgRun();
+  if (!r) { renderHome(); return; }
+  r.lessons = (r.lessons || 0) + 1;
+  rgSave();
+  renderRogueReward('📖 설계도를 익혔어요 — 카드를 한 장 고르세요');
+};
 
 /* ---------- 전투 ---------- */
 function rgQueueFor(subjKey) {
@@ -514,7 +630,7 @@ function rgPickCards(n) {
   return pool.slice(0, n);
 }
 
-function renderRogueReward() {
+function renderRogueReward(headline) {
   var r = rgRun();
   var n = rgHasRelic('meter') ? 4 : 3;
   if (!r.rewardOffer) { r.rewardOffer = rgPickCards(n); rgSave(); }
@@ -522,7 +638,7 @@ function renderRogueReward() {
   $('#view').innerHTML =
     rgTopHtml(r) +
     '<div class="card" style="text-align:center">' +
-    '<b style="font-size:1.1rem">🎉 이겼어요! 카드를 한 장 고르세요</b>' +
+    '<b style="font-size:1.1rem">' + esc(headline || '🎉 복구 성공! 카드를 한 장 고르세요') + '</b>' +
     '<p class="muted" style="margin-top:4px">고른 카드는 덱에 들어가 다음 전투부터 나와요</p></div>' +
     '<div class="rg-hand rg-choose">' + cards + '</div>' +
     '<button class="btn btn-ghost" id="rgSkip">안 받고 넘어가기</button>';
@@ -680,7 +796,18 @@ function rgEndRun(win) {
   var reached = Math.min(r.floor, FLOOR_PLAN.length);
   if (reached > (st.bestFloor || 0)) st.bestFloor = reached;
   if (win) st.clears++;
-  var correct = r.correct, total = r.total, cleared = r.cleared;
+
+  // 구역 기록 + 영구 성장: 구역을 처음 복구하면 최대 체력이 1 늘어난다
+  var m = rgMeta();
+  var z = m.zones[r.zone] || { clears: 0, best: 0 };
+  var firstClear = win && !z.clears;
+  if (win) z.clears++;
+  if (reached > (z.best || 0)) z.best = reached;
+  m.zones[r.zone] = z;
+  if (firstClear) m.maxHpBonus = Math.min((m.maxHpBonus || 0) + 1, 5);
+
+  var zoneName = (subjectByKey(r.zone) || {}).name || '';
+  var correct = r.correct, total = r.total, cleared = r.cleared, lessons = r.lessons || 0;
   var relics = r.relics.slice(), deckN = r.deck.length;
   S.rogue = null;
   rgSave();
@@ -692,22 +819,23 @@ function rgEndRun(win) {
   $('#view').innerHTML =
     '<div class="card rg-end ' + (win ? 'win' : '') + '">' +
     '<div class="rg-hero-icon">' + (win ? '🏆' : '🔦') + '</div>' +
-    '<h2>' + (win ? '전력망 복구 완료!' : '이번 탐험은 여기까지') + '</h2>' +
+    '<h2>' + (win ? esc(zoneName) + ' 구역 복구 완료!' : '이번 작전은 여기까지') + '</h2>' +
     '<p class="muted">' + (win ?
-      '8개 층을 전부 넘었어요. 이건 실력이에요.' :
+      '8개 층을 전부 넘었어요. 이건 실력이에요.' +
+      (firstClear ? '<br><b>🎖 최대 체력이 영구히 1 늘었어요!</b>' : '') :
       reached + '층까지 갔어요. 여기서 푼 문제는 <b>전부 복습 기록에 남았어요</b> — 잃은 건 하나도 없어요.') + '</p>' +
     '<div class="rg-end-grid">' +
     '<div><b>' + reached + '층</b><span>도달</span></div>' +
-    '<div><b>' + cleared + '</b><span>쓰러뜨린 적</span></div>' +
+    '<div><b>' + cleared + '</b><span>복구한 고장</span></div>' +
     '<div><b>' + correct + '/' + total + '</b><span>정답 (' + acc + '%)</span></div>' +
-    '<div><b>' + deckN + '장</b><span>모은 덱</span></div>' +
+    '<div><b>' + lessons + '개</b><span>익힌 설계도</span></div>' +
     '</div>' +
     (relics.length ? '<div class="rg-end-relics">' + relics.map(function (id) { return RELICS[id].icon; }).join(' ') + '</div>' : '') +
     '<div class="result-actions">' +
-    '<button class="btn btn-primary" id="rgAgain">다시 탐험하기 ▶</button>' +
-    '<button class="btn btn-ghost" id="rgHome">홈으로</button>' +
+    '<button class="btn btn-primary" id="rgAgain">다음 작전 고르기 ▶</button>' +
+    '<button class="btn btn-ghost" id="rgHome">기지로</button>' +
     '</div></div>';
-  $('#rgAgain').onclick = function () { window.rogueStart(); };
+  $('#rgAgain').onclick = function () { window.renderRogue(); };
   $('#rgHome').onclick = function () { renderHome(); };
   window.scrollTo(0, 0);
 }
