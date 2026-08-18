@@ -1088,29 +1088,44 @@ function startUnitQuiz(subjKey, ui) {
   renderQuiz();
 }
 
-function lessonBubble(step, i, isCurrent) {
-  var pick = lessonRun.picks[i];
-  var art = step.art ? '<div class="l-art">' + esc(step.art) + '</div>' : '';
-  var html = '<div class="l-step">' + art + '<div class="l-bubble">' + esc(step.text) + '</div>';
-  if (step.kind === 'choice' && step.options) {
-    var opts = step.options.map(function (o, oi) {
-      var cls = 'l-opt';
-      var dis = '';
-      if (pick) {
-        dis = ' disabled';
-        if (oi === step.answer) cls += ' right';
-        else if (oi === pick.pick) cls += ' wrong';
-        else cls += ' dim';
-      } else if (!isCurrent) { dis = ' disabled'; }
-      return '<button class="' + cls + '" data-lopt="' + oi + '"' + dis + '>' + esc(o) + '</button>';
-    }).join('');
-    html += '<div class="l-opts">' + opts + '</div>';
-    if (pick) {
-      var reaction = pick.ok ? (step.right || '정답이에요!') : (step.wrong || '괜찮아요!');
-      html += '<div class="l-reaction ' + (pick.ok ? 'ok' : 'no') + '">' + (pick.ok ? '🎉 ' : '💪 ') + esc(reaction) + '</div>';
-    }
-  }
-  return html + '</div>';
+/* ---------- 레슨 = 비주얼 노벨 "설계도 복원" ----------
+   레슨 데이터(steps)는 그대로 두고 연출만 게임으로 바꿨다.
+   정비반장이 대사로 가르치고, 글자가 타자기처럼 흐르고, 화면을 탭해서 진행한다. */
+var VN_SPEED = 16;   // ms/글자 — 탭하면 즉시 완성
+
+function vnReduced() {
+  return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+function vnStopType() {
+  if (lessonRun && lessonRun.timer) { clearInterval(lessonRun.timer); lessonRun.timer = null; }
+}
+function vnType(el, text, onDone) {
+  vnStopType();
+  if (vnReduced() || lessonRun.instant) { el.textContent = text; onDone(); return; }
+  var chars = Array.from(text), i = 0;
+  el.textContent = '';
+  lessonRun.skip = function () {
+    vnStopType(); lessonRun.skip = null;
+    el.textContent = text; onDone();
+  };
+  lessonRun.timer = setInterval(function () {
+    el.textContent += chars[i++];
+    // 아주 조용한 말소리 틱 (S.mute 는 beep 이 스스로 확인)
+    if (i % 4 === 0 && typeof beep === 'function') beep(600 + (i % 3) * 70, 0.018, 'square', 0.02);
+    if (i >= chars.length) { vnStopType(); lessonRun.skip = null; onDone(); }
+  }, VN_SPEED);
+}
+/* 화면 탭 = 타이핑 중이면 즉시 완성, 다 나왔으면 다음 대사 */
+function vnTap() {
+  if (!lessonRun) return;
+  if (lessonRun.skip) { lessonRun.skip(); return; }
+  var steps = lessonRun.steps;
+  if (lessonRun.idx >= steps.length) return;
+  var step = steps[lessonRun.idx];
+  if (step.kind === 'choice' && !lessonRun.picks[lessonRun.idx]) return;   // 골라야 지나간다
+  if (typeof beep === 'function') beep(500, 0.04, 'triangle', 0.06);
+  lessonRun.idx++;
+  renderLesson();
 }
 
 function renderLesson() {
@@ -1119,13 +1134,8 @@ function renderLesson() {
   var steps = lessonRun.steps;
   var v = $('#view');
   var done = lessonRun.idx >= steps.length;
+  vnStopType(); lessonRun.skip = null;
 
-  var bubbles = '';
-  for (var i = 0; i <= Math.min(lessonRun.idx, steps.length - 1); i++) {
-    bubbles += lessonBubble(steps[i], i, i === lessonRun.idx);
-  }
-
-  var footer = '';
   if (done) {
     var ukey = unitKeyOf(lessonRun.subjKey, lessonRun.ui);
     var firstTime = !(S.lessonProg[ukey] && S.lessonProg[ukey].done);
@@ -1138,11 +1148,12 @@ function renderLesson() {
       if (window.celebrate) celebrate('small');
     }
     if (lessonRun.journey && window.journeyMarkTaught) window.journeyMarkTaught(lessonRun.subjKey, lessonRun.ui);
-    footer = '<div class="card result-hero" style="padding:26px 20px">' +
-      '<div style="font-size:2rem">🎓</div>' +
-      '<div style="font-weight:800;font-size:1.1rem;margin-top:6px">' +
-      (lessonRun.rogue ? '설계도를 익혔어요!' : lessonRun.journey ? '개념 배우기 완료!' : '레슨 완료!') +
-      ' ' + (firstTime ? '+15 XP' : '(복습)') + '</div>' +
+    v.innerHTML =
+      '<div class="card result-hero vn-done">' +
+      '<div class="vn-stamp">복원 완료</div>' +
+      '<div class="vn-done-art">' + esc((steps[0] && steps[0].art) || '📘') + '</div>' +
+      '<div style="font-weight:800;font-size:1.15rem;margin-top:6px">' +
+      esc(unit.topic) + ' ' + (firstTime ? '+15 XP' : '(복습)') + '</div>' +
       '<div class="msg">' + (lessonRun.rogue ? '이 지식이 카드가 되어 덱에 들어가요.' :
         lessonRun.journey ? '이제 방금 배운 걸 바로 문제로 확인해요. 맞히면 다음 단계가 열려요!' :
           '배운 걸 바로 문제로 확인하면 기억에 2배로 남아요!') + '</div>' +
@@ -1154,22 +1165,6 @@ function renderLesson() {
           '<button class="btn btn-primary" id="lQuiz">✏️ 이 개념 문제로 확인</button>' +
           '<button class="btn btn-ghost" id="lMap">🗺 맵으로</button>') +
       '</div></div>';
-  } else {
-    var cur = steps[lessonRun.idx];
-    var showNext = cur.kind !== 'choice' || !!lessonRun.picks[lessonRun.idx];
-    footer = showNext ?
-      '<div class="l-next"><button class="btn btn-primary" id="lNext">' + (lessonRun.idx === steps.length - 1 ? '레슨 끝내기 🎓' : '계속 ▶') + '</button></div>' :
-      '<div class="l-next muted" style="text-align:center">👆 골라보세요!</div>';
-  }
-
-  v.innerHTML =
-    '<div class="quiz-head"><span class="quiz-mode">📖 이론 레슨 · ' + esc(subj.name) + '</span>' +
-    '<span class="quiz-progress">' + Math.min(lessonRun.idx + 1, steps.length) + ' / ' + steps.length + '</span></div>' +
-    '<div class="qbar"><i style="width:' + Math.round(Math.min(lessonRun.idx, steps.length) / steps.length * 100) + '%"></i></div>' +
-    '<div class="card"><span class="topic-chip">' + esc(unit.topic) + '</span>' +
-    '<div class="l-steps">' + bubbles + '</div></div>' + footer;
-
-  if (done) {
     if (lessonRun.rogue) {
       $('#lRogue').onclick = function () { if (window.rogueLessonDone) window.rogueLessonDone(); };
     } else if (lessonRun.journey) {
@@ -1178,21 +1173,109 @@ function renderLesson() {
       $('#lQuiz').onclick = function () { startUnitQuiz(lessonRun.subjKey, lessonRun.ui); };
       $('#lMap').onclick = function () { renderMap(lessonRun.subjKey); };
     }
-  } else {
-    var nx = $('#lNext');
-    if (nx) nx.onclick = function () { lessonRun.idx++; renderLesson(); };
-    document.querySelectorAll('[data-lopt]:not([disabled])').forEach(function (b) {
-      b.onclick = function () {
-        var oi = parseInt(b.getAttribute('data-lopt'), 10);
-        var step = lessonRun.steps[lessonRun.idx];
-        var ok = oi === step.answer;
-        lessonRun.picks[lessonRun.idx] = { pick: oi, ok: ok };
-        if (ok) addXP(3);
-        renderLesson();
-      };
-    });
+    window.scrollTo(0, 0);
+    return;
   }
-  window.scrollTo(0, document.body.scrollHeight);
+
+  var step = steps[lessonRun.idx];
+  var picked = lessonRun.picks[lessonRun.idx];
+
+  // 회로 진행도: 대사 하나가 마디 하나. 문답 마디는 다이아몬드로 표시
+  var dots = steps.map(function (s, i) {
+    return '<i class="vn-node' + (i < lessonRun.idx ? ' done' : (i === lessonRun.idx ? ' now' : '')) +
+      (s.kind === 'choice' ? ' q' : '') + '"></i>';
+  }).join('');
+
+  var optsHtml = '';
+  if (step.kind === 'choice' && step.options) {
+    optsHtml = '<div class="vn-opts" id="vnOpts"' + (picked ? '' : ' hidden') + '>' +
+      step.options.map(function (o, oi) {
+        var cls = 'vn-opt', dis = '';
+        if (picked) {
+          dis = ' disabled';
+          if (oi === step.answer) cls += ' right';
+          else if (oi === picked.pick) cls += ' wrong';
+          else cls += ' dim';
+        }
+        return '<button class="' + cls + '" data-lopt="' + oi + '"' + dis + '>' + esc(o) + '</button>';
+      }).join('') + '</div>';
+  }
+
+  v.innerHTML =
+    '<div class="quiz-head"><span class="quiz-mode">📖 설계도 · ' + esc(subj.name) + '</span>' +
+    '<span class="quiz-progress">' + (lessonRun.idx + 1) + ' / ' + steps.length + '</span></div>' +
+    '<div class="vn-track">' + dots + '</div>' +
+    '<div class="vn-scene" id="vnScene">' +
+    '<div class="vn-stage">' + esc(step.art || '📘') + '</div>' +
+    '<div class="vn-box">' +
+    '<span class="vn-name">🧑‍🔧 정비반장</span>' +
+    '<span class="vn-topic">' + esc(unit.topic) + '</span>' +
+    '<div class="vn-text" id="vnText"></div>' +
+    optsHtml +
+    '<div class="vn-react" id="vnReact"></div>' +
+    '<span class="vn-cue" id="vnCue" hidden>▼ 탭해서 계속</span>' +
+    '</div></div>' +
+    '<div class="vn-foot">' +
+    (lessonRun.idx > 0 ? '<button class="btn btn-ghost btn-sm" id="vnBack">‹ 이전 대사</button>' : '<span></span>') +
+    '<span class="vn-keyhint">화면 탭 또는 Enter로 진행</span></div>';
+
+  $('#vnScene').onclick = function (e) {
+    if (e.target.closest && e.target.closest('.vn-opt')) return;   // 선택지는 따로 처리
+    vnTap();
+  };
+  var bk = $('#vnBack');
+  if (bk) bk.onclick = function (e) {
+    e.stopPropagation();
+    vnStopType(); lessonRun.skip = null;
+    lessonRun.idx--; lessonRun.instant = true;   // 다시 보는 대사는 즉시 표시
+    renderLesson();
+  };
+
+  function afterText() {
+    if (step.kind === 'choice' && !picked) {
+      var op = $('#vnOpts'); if (op) op.hidden = false;
+    } else if (picked) {
+      // 뒤로 돌아와 이미 답한 문답: 반응까지 즉시 보여준다
+      var rEl = $('#vnReact');
+      rEl.className = 'vn-react on ' + (picked.ok ? 'ok' : 'no');
+      rEl.textContent = (picked.ok ? '🎉 ' : '💪 ') + (picked.ok ? (step.right || '정답이에요!') : (step.wrong || '괜찮아요!'));
+      $('#vnCue').hidden = false;
+    } else {
+      $('#vnCue').hidden = false;
+    }
+  }
+  vnType($('#vnText'), step.text, afterText);
+  lessonRun.instant = false;
+
+  document.querySelectorAll('#vnOpts .vn-opt:not([disabled])').forEach(function (b) {
+    b.onclick = function (e) {
+      e.stopPropagation();
+      if (lessonRun.picks[lessonRun.idx]) return;
+      var oi = parseInt(b.getAttribute('data-lopt'), 10);
+      var ok = oi === step.answer;
+      lessonRun.picks[lessonRun.idx] = { pick: oi, ok: ok };
+      if (ok) {
+        addXP(3);
+        if (typeof beep === 'function') { beep(660, 0.09, 'triangle', 0.12); beep(880, 0.1, 'triangle', 0.1, 0.07); }
+      } else {
+        if (typeof beep === 'function') beep(220, 0.14, 'sawtooth', 0.1);
+        if (window.haptic) haptic('no');
+      }
+      // 화면을 다시 그리지 않고 제자리에서 판정 표시 (질문 타이핑이 다시 돌지 않게)
+      document.querySelectorAll('#vnOpts .vn-opt').forEach(function (x, xi) {
+        x.disabled = true;
+        if (xi === step.answer) x.classList.add('right');
+        else if (xi === oi) x.classList.add('wrong');
+        else x.classList.add('dim');
+      });
+      var rEl = $('#vnReact');
+      rEl.className = 'vn-react on ' + (ok ? 'ok' : 'no');
+      vnType(rEl,
+        (ok ? '🎉 ' : '💪 ') + (ok ? (step.right || '정답이에요!') : (step.wrong || '괜찮아요!')),
+        function () { $('#vnCue').hidden = false; });
+    };
+  });
+  window.scrollTo(0, 0);
 }
 
 /* ---------- 렌더: 과목 진행 맵 ---------- */
@@ -1645,6 +1728,15 @@ document.addEventListener('keydown', function (e) {
     if (djn) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); djn.click(); } return; }
     var djp = document.querySelectorAll('[data-djpick]');
     if (djp.length && !djp[0].disabled && e.key >= '1' && e.key <= '4' && djp[parseInt(e.key, 10) - 1]) { djp[parseInt(e.key, 10) - 1].click(); return; }
+  }
+  // 레슨(설계도) 키보드 — Enter/Space 진행, 1~4 선택
+  if (lessonRun && document.getElementById('vnScene')) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); vnTap(); return; }
+    if (e.key >= '1' && e.key <= '4') {
+      var lo = document.querySelectorAll('#vnOpts .vn-opt:not([disabled])')[parseInt(e.key, 10) - 1];
+      if (lo) lo.click();
+    }
+    return;
   }
   // 보스전 키보드
   if (typeof battle !== 'undefined' && battle && !battle.over) {
