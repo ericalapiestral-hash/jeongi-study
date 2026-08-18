@@ -1250,7 +1250,7 @@ function renderLesson() {
       document.querySelectorAll('.ld-bub').forEach(function (x) { x.disabled = true; });
       if (typeof SFX !== 'undefined') SFX.miss();
       ldBanner(false, '⏱ 시간 끝! 정답: ' + q.options[q.answer], ldNextRound, 1600);
-    }, 10000);
+    }, 15000);
     document.querySelectorAll('.ld-bub').forEach(function (b) {
       b.onclick = function () {
         if (!alive()) return;
@@ -1313,7 +1313,7 @@ function renderLesson() {
         else renderLesson();
       }, 1600);
     };
-    lessonRun.tm = setTimeout(function () { oxDone(null); }, 7000);
+    lessonRun.tm = setTimeout(function () { oxDone(null); }, 10000);
     document.querySelectorAll('.ld-ox').forEach(function (b) {
       b.onclick = function () { oxDone(b.getAttribute('data-act')); };
     });

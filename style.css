@@ -2447,9 +2447,9 @@ html[data-theme="light"] .ld-timerbar { background: var(--bg-2); }
   display: block; height: 100%; width: 100%;
   background: linear-gradient(90deg, var(--gold), var(--warn));
   box-shadow: 0 0 10px rgba(232, 196, 96, .5);
-  transition: width 10s linear;
+  transition: width 15s linear;
 }
-.ld-timerbar.fast i { transition-duration: 7s; }
+.ld-timerbar.fast i { transition-duration: 10s; }
 
 /* 스피드 탭 과녁 */
 .ld-prompt { font-size: 1.08rem; font-weight: 700; line-height: 1.6; margin-bottom: 10px; word-break: keep-all; }
@@ -2542,3 +2542,5 @@ html[data-theme="light"] .ld-timerbar { background: var(--bg-2); }
   .ld-bub, .ld-seg.now, .ld-combo, .ld-brief { animation: none; }
   .ld-timerbar i { transition-duration: 10s; }
 }
+
+.rz-tag.easy { color: var(--warn-ink); background: var(--warn-soft); border: 1px solid var(--warn-line); }

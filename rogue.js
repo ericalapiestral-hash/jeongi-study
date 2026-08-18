@@ -62,6 +62,7 @@ var NODE_INFO = {
 };
 
 var ENEMY_NAMES = {
+  basic: ['정전기 꼬마 유령', '헐거운 전선', '깜빡이는 전구'],
   mag: ['떠도는 자속', '자기장 도깨비', '쿨롱의 그림자'],
   power: ['누전 유령', '고압 스파크', '송전탑 파수꾼'],
   machine: ['녹슨 회전자', '과열 변압기', '멈춘 전동기'],
@@ -70,7 +71,9 @@ var ENEMY_NAMES = {
 };
 
 function rgSubjects() {
-  return (typeof examSubjects === 'function' ? examSubjects() : DATA.subjects) || [];
+  // 기초 과목(초등학생 눈높이로 쓰인 훈련소)을 맨 앞에 두고, 그 뒤에 시험 과목 5개.
+  // 전에는 시험 과목만 구역이라 "아무것도 모르는 사람"의 진입로가 게임에 없었다.
+  return DATA.subjects || [];
 }
 
 /* 적은 언제나 "이번 작전 구역(과목)"에서 나온다 — 런 하나가 한 과목 집중 학습이 되도록 */
@@ -78,8 +81,10 @@ function rgEnemyFor(kind) {
   var r = rgRun();
   var subj = subjectByKey(r.zone);
   if (!subj) { var subs = rgSubjects(); subj = subs[0]; }
-  var hp = kind === 'boss' ? 42 : kind === 'elite' ? 26 : 15;
-  var bite = kind === 'battle' ? 1 : 2;
+  // 훈련소(기초 과목)의 적은 눈에 띄게 약하다 — 이기는 경험부터 쌓는 곳
+  var easy = !!subj.foundational;
+  var hp = kind === 'boss' ? (easy ? 24 : 42) : kind === 'elite' ? (easy ? 16 : 26) : (easy ? 9 : 15);
+  var bite = (kind === 'battle' || easy) ? 1 : 2;
   var nm, icon;
   if (kind === 'boss') {
     var boss = (window.BOSSES || []).filter(function (b) { return b.key === subj.key; })[0];
@@ -204,11 +209,16 @@ window.renderRogue = function () {
 
   var zoneCards = zones.map(function (z) {
     var done = z.clears > 0;
+    var subj = subjectByKey(z.key);
+    var easy = !!(subj && subj.foundational);
     return '<div class="rg-zone' + (done ? ' done' : '') + '" data-zone="' + esc(z.key) + '">' +
-      '<div class="rz-icon">' + (done ? '🟢' : '🔌') + '</div>' +
+      '<div class="rz-icon">' + (done ? '🟢' : (easy ? '🏕' : '🔌')) + '</div>' +
       '<div class="rz-body">' +
-      '<div class="rz-name">' + esc(z.name) + (done ? ' <span class="rz-tag">복구됨 ×' + z.clears + '</span>' : '') + '</div>' +
-      '<div class="rz-sub">' + (done ? '다시 들어가면 더 깊이 복습해요' :
+      '<div class="rz-name">' + esc(z.name) +
+      (easy ? ' <span class="rz-tag easy">훈련소 · 아주 쉬움</span>' : '') +
+      (done ? ' <span class="rz-tag">복구됨 ×' + z.clears + '</span>' : '') + '</div>' +
+      '<div class="rz-sub">' + (easy && !done ? '전기가 처음이면 여기부터 — 제일 쉬운 것만 나와요' :
+        done ? '다시 들어가면 더 깊이 복습해요' :
         (z.best ? '최고 ' + z.best + '층까지 갔어요' : '아직 복구 안 된 구역이에요')) + '</div>' +
       '<div class="rz-bar"><i style="width:' + z.pct + '%"></i></div>' +
       '</div><div class="rz-go">출격 ▶</div></div>';
