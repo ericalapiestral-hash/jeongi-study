@@ -1123,9 +1123,48 @@ function vnTap() {
   if (lessonRun.idx >= steps.length) return;
   var step = steps[lessonRun.idx];
   if (step.kind === 'choice' && !lessonRun.picks[lessonRun.idx]) return;   // 골라야 지나간다
+  if (lessonRun.asmActive && !lessonRun.asmDone) return;                   // 조립을 끝내야 지나간다
   if (typeof beep === 'function') beep(500, 0.04, 'triangle', 0.06);
   lessonRun.idx++;
   renderLesson();
+}
+
+/* ---------- 설명문을 조립 부품으로 쪼갠다 ----------
+   문장 경계(., !, ?) 우선, 긴 문장은 괄호 밖 쉼표에서 한 번 더.
+   공식 "F = 9×10⁹ × (Q₁×Q₂)/r²" 같은 건 괄호 깊이를 세서 쪼개지 않는다. */
+function vnChunks(text) {
+  function splitBy(str, isCut, minLen) {
+    var out = [], buf = '', depth = 0, cs = Array.from(str);
+    for (var i = 0; i < cs.length; i++) {
+      var c = cs[i]; buf += c;
+      if (c === '(') depth++;
+      if (c === ')') depth = Math.max(0, depth - 1);
+      if (depth === 0 && isCut(c, cs[i + 1]) && Array.from(buf).length >= minLen) {
+        out.push(buf.trim()); buf = '';
+      }
+    }
+    if (buf.trim()) out.push(buf.trim());
+    return out;
+  }
+  var parts = splitBy(text, function (c, nx) {
+    return (c === '.' || c === '!' || c === '?') && (!nx || nx === ' ');
+  }, 4);
+  var out = [];
+  parts.forEach(function (p) {
+    if (Array.from(p).length <= 26) { out.push(p); return; }
+    out = out.concat(splitBy(p, function (c) { return c === ','; }, 10));
+  });
+  out = out.filter(function (x) { return x; });
+  // 부품이 너무 많으면 짧은 이웃끼리 합친다 (트레이가 넘치지 않게)
+  while (out.length > 6) {
+    var bi = 0, bl = Infinity;
+    for (var i = 0; i < out.length - 1; i++) {
+      var l = out[i].length + out[i + 1].length;
+      if (l < bl) { bl = l; bi = i; }
+    }
+    out.splice(bi, 2, out[bi] + ' ' + out[bi + 1]);
+  }
+  return out;
 }
 
 function renderLesson() {
@@ -1179,6 +1218,16 @@ function renderLesson() {
 
   var step = steps[lessonRun.idx];
   var picked = lessonRun.picks[lessonRun.idx];
+  lessonRun.doneSteps = lessonRun.doneSteps || {};
+
+  // 이 단계를 어떻게 플레이할지 정한다.
+  // 설명(story)은 "부품 조립"이 기본 — 읽는 게 아니라 조각을 순서대로 끼워 회로를 잇는다.
+  // 이미 지나온 단계·읽기 모드에서는 그냥 보여준다.
+  var chunks = (step.kind !== 'choice') ? vnChunks(step.text) : null;
+  var assemble = !!(chunks && chunks.length >= 3 && !S.lessonReadMode &&
+    !lessonRun.doneSteps[lessonRun.idx] && !lessonRun.instant);
+  lessonRun.asmActive = assemble;
+  lessonRun.asmDone = !assemble;
 
   // 회로 진행도: 대사 하나가 마디 하나. 문답 마디는 다이아몬드로 표시
   var dots = steps.map(function (s, i) {
@@ -1201,26 +1250,45 @@ function renderLesson() {
       }).join('') + '</div>';
   }
 
+  // 조립 모드: 완성 칸(위) + 부품 트레이(아래, 섞여 있음)
+  var asmHtml = '';
+  if (assemble) {
+    var order = chunks.map(function (_, i) { return i; });
+    for (var t = 0; t < 5; t++) {
+      order = shuffle(order);
+      if (order.some(function (x, i) { return x !== i; })) break;
+    }
+    lessonRun.asm = { chunks: chunks, next: 0, wrongs: 0 };
+    asmHtml =
+      '<div class="vn-asm-label">부품을 순서대로 끼워 설명을 완성하세요</div>' +
+      '<div class="vn-tray" id="vnTray">' +
+      order.map(function (ci) {
+        return '<button class="vn-part" data-chunk="' + ci + '">' + esc(chunks[ci]) + '</button>';
+      }).join('') + '</div>';
+  }
+
   v.innerHTML =
     '<div class="quiz-head"><span class="quiz-mode">📖 설계도 · ' + esc(subj.name) + '</span>' +
     '<span class="quiz-progress">' + (lessonRun.idx + 1) + ' / ' + steps.length + '</span></div>' +
     '<div class="vn-track">' + dots + '</div>' +
     '<div class="vn-scene" id="vnScene">' +
     '<div class="vn-stage">' + esc(step.art || '📘') + '</div>' +
-    '<div class="vn-box">' +
+    '<div class="vn-box' + (assemble ? ' asm' : '') + '">' +
     '<span class="vn-name">🧑‍🔧 정비반장</span>' +
     '<span class="vn-topic">' + esc(unit.topic) + '</span>' +
     '<div class="vn-text" id="vnText"></div>' +
+    asmHtml +
     optsHtml +
     '<div class="vn-react" id="vnReact"></div>' +
     '<span class="vn-cue" id="vnCue" hidden>▼ 탭해서 계속</span>' +
     '</div></div>' +
     '<div class="vn-foot">' +
-    (lessonRun.idx > 0 ? '<button class="btn btn-ghost btn-sm" id="vnBack">‹ 이전 대사</button>' : '<span></span>') +
-    '<span class="vn-keyhint">화면 탭 또는 Enter로 진행</span></div>';
+    (lessonRun.idx > 0 ? '<button class="btn btn-ghost btn-sm" id="vnBack">‹ 이전</button>' : '<span></span>') +
+    '<button class="btn btn-ghost btn-sm" id="vnMode">' + (S.lessonReadMode ? '조립하며 배우기' : '그냥 읽기') + '</button>' +
+    '</div>';
 
   $('#vnScene').onclick = function (e) {
-    if (e.target.closest && e.target.closest('.vn-opt')) return;   // 선택지는 따로 처리
+    if (e.target.closest && e.target.closest('.vn-opt,.vn-part')) return;   // 부품·선택지는 따로 처리
     vnTap();
   };
   var bk = $('#vnBack');
@@ -1228,6 +1296,12 @@ function renderLesson() {
     e.stopPropagation();
     vnStopType(); lessonRun.skip = null;
     lessonRun.idx--; lessonRun.instant = true;   // 다시 보는 대사는 즉시 표시
+    renderLesson();
+  };
+  $('#vnMode').onclick = function (e) {
+    e.stopPropagation();
+    S.lessonReadMode = !S.lessonReadMode; saveState();
+    vnStopType(); lessonRun.skip = null;
     renderLesson();
   };
 
@@ -1244,7 +1318,51 @@ function renderLesson() {
       $('#vnCue').hidden = false;
     }
   }
-  vnType($('#vnText'), step.text, afterText);
+
+  if (assemble) {
+    // 조립 플레이: 다음 순서의 부품을 골라 끼운다. 틀려도 잃는 건 없고,
+    // 두 번 헤매면 다음 부품이 반짝여서 막히지 않는다.
+    var textEl = $('#vnText');
+    document.querySelectorAll('.vn-part').forEach(function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        var a = lessonRun.asm;
+        var ci = parseInt(b.getAttribute('data-chunk'), 10);
+        var okChunk = ci === a.next || a.chunks[ci] === a.chunks[a.next];
+        if (!okChunk) {
+          a.wrongs++;
+          b.classList.add('nope');
+          setTimeout(function () { b.classList.remove('nope'); }, 340);
+          if (typeof beep === 'function') beep(200, 0.1, 'sawtooth', 0.07);
+          if (a.wrongs >= 2) {
+            var nb = document.querySelector('.vn-part[data-chunk="' + a.next + '"]');
+            if (nb) nb.classList.add('hint');
+          }
+          return;
+        }
+        a.wrongs = 0;
+        textEl.textContent += (textEl.textContent ? ' ' : '') + a.chunks[a.next];
+        a.next++;
+        b.disabled = true; b.classList.add('used');
+        if (typeof beep === 'function') beep(560 + a.next * 60, 0.06, 'triangle', 0.1);
+        if (a.next >= a.chunks.length) {
+          // 회로 연결 완료 — 불이 들어온다
+          lessonRun.asmDone = true;
+          lessonRun.doneSteps[lessonRun.idx] = true;
+          addXP(1, true);
+          var box = document.querySelector('.vn-box');
+          if (box) box.classList.add('lit');
+          var tray = $('#vnTray'); if (tray) tray.classList.add('gone');
+          if (typeof beep === 'function') { beep(660, 0.1, 'triangle', 0.12); beep(990, 0.14, 'triangle', 0.1, 0.08); }
+          if (window.haptic) haptic('ok');
+          $('#vnCue').hidden = false;
+        }
+      };
+    });
+  } else {
+    if (step.kind !== 'choice') lessonRun.doneSteps[lessonRun.idx] = true;
+    vnType($('#vnText'), step.text, afterText);
+  }
   lessonRun.instant = false;
 
   document.querySelectorAll('#vnOpts .vn-opt:not([disabled])').forEach(function (b) {
