@@ -2602,3 +2602,61 @@ html[data-theme="light"] .ld-timerbar { background: var(--bg-2); }
   .duo-row.o4 { transform: translateX(64px); }
 }
 @media (prefers-reduced-motion: reduce) { .duo-node.now, .duo-start { animation: none; } }
+
+/* ================================================================
+   전면 마감 상향 — 듀오링고식 3D 눌림 + 경로 연결선
+   ================================================================ */
+
+/* 주요 버튼: 바닥 테두리로 눌리는 맛 (앱 전체 공통 언어) */
+.btn-primary, .btn-warm, .btn-boss {
+  border-bottom: 5px solid rgba(0, 0, 0, .45) !important;
+  transition: transform .1s, border-bottom-width .1s, filter .15s, box-shadow .15s;
+}
+.btn-primary:not([disabled]):active, .btn-warm:not([disabled]):active, .btn-boss:not([disabled]):active {
+  transform: translateY(3px); border-bottom-width: 2px !important;
+}
+.choice {
+  border-bottom-width: 4px;
+  transition: transform .1s, border-color .13s, box-shadow .13s, border-bottom-width .1s;
+}
+.choice:not([disabled]):active { transform: translateY(2px); border-bottom-width: 2px; }
+.ld-ox, .vn-opt, .ld-bub { border-bottom-width: 4px !important; }
+.ld-ox:not([disabled]):active, .vn-opt:not([disabled]):active, .ld-bub:not([disabled]):active {
+  transform: translateY(2px); border-bottom-width: 2px !important;
+}
+
+/* 경로: 노드 사이 점선 길 */
+.duo-row { position: relative; }
+.duo-row + .duo-row::before {
+  content: ''; position: absolute; left: 50%; top: -14px; width: 4px; height: 14px;
+  background: repeating-linear-gradient(180deg, var(--brand-line) 0 4px, transparent 4px 8px);
+  border-radius: 2px; transform: translateX(-50%);
+}
+.duo-node { position: relative; }
+.duo-node.done::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid rgba(232, 196, 96, .35); pointer-events: none;
+}
+
+/* 구간 띠: 금색 그라데이션 */
+.duo-sec span {
+  background: linear-gradient(178deg, #3a2f18, #2c2318);
+  border-color: var(--brand-line); color: var(--brand-deep);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .35), var(--inset-hi);
+  letter-spacing: .04em;
+}
+
+/* 출격 카드: 광택 쓸기 */
+.op-card { overflow: hidden; }
+.op-card::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 244, 214, .09) 50%, transparent 60%);
+  transform: translateX(-130%); animation: opSheen 5s ease-in-out infinite;
+}
+@keyframes opSheen { 0%, 62% { transform: translateX(-130%); } 82%, 100% { transform: translateX(130%); } }
+
+/* 토스트·판정 배너 그림자 통일 */
+.ld-banner.on, .vn-react.on { box-shadow: var(--shadow); }
+.duo-stats .today-pill { border: 1px solid var(--line); box-shadow: var(--inset-hi); }
+
+@media (prefers-reduced-motion: reduce) { .op-card::before { animation: none; } }
