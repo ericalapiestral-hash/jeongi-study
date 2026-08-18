@@ -294,6 +294,10 @@ function renderJourney(justCleared) {
   if (justCleared) window.scrollTo(0, 0);
 }
 window.renderJourney = renderJourney;
+/* 듀오링고식 홈 경로가 쓴다 */
+window.journeyPlayNode = playNode;
+window.journeyFlat = flatNodes;
+window.journeyCur = currentNodeIndex;
 
 /* 홈 화면용 여정 히어로 카드 */
 window.journeyHeroHtml = function () {

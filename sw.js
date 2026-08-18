@@ -1,9 +1,9 @@
 /* 서비스 워커 — 오프라인에서도 공부할 수 있게 모든 파일을 캐시 (안드로이드·아이폰 공통) */
-var CACHE = 'jeongi-study-v37';
+var CACHE = 'jeongi-study-v38';
 var FILES = [
   './',
   './index.html',
-  './style.css?v=37',
+  './style.css?v=38',
   './fonts.css?v=1',
   './fonts/jua-0.woff2',
   './fonts/jua-1.woff2',

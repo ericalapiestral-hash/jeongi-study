@@ -644,25 +644,42 @@ function renderHome() {
     '복구한 구역 <b>' + restored + ' / ' + Math.max(zones.length, 1) + '</b></div>' +
     '<div class="op-go">출격 ▶</div></div>';
 
+  // 듀오링고식 학습 경로 — 여정 129단계를 구불구불한 노드 길로 그린다
+  var pathHtml = '';
+  if (window.journeyFlat) {
+    var flat = window.journeyFlat(), cur = window.journeyCur();
+    var lastSubj = null, wob = 0;
+    pathHtml = '<div class="duo-path">' + flat.map(function (f, i) {
+      var h = '';
+      if (f.subjKey !== lastSubj) {
+        lastSubj = f.subjKey; wob = 0;
+        var sname = (subjectByKey(f.subjKey) || {}).name || '';
+        h = '<div class="duo-sec"><span>' + esc(sname) + '</span></div>';
+      }
+      var st = i < cur ? 'done' : (i === cur ? 'now' : 'lock');
+      var off = [2, 3, 4, 3, 2, 1, 0, 1][wob++ % 8];
+      return h + '<div class="duo-row o' + off + '">' +
+        (st === 'now' ? '<span class="duo-start">시작!</span>' : '') +
+        '<button class="duo-node ' + st + '" data-jn="' + i + '" title="' + esc(f.topic || '') + '"' +
+        (st === 'lock' ? ' disabled' : '') + '>' +
+        (st === 'done' ? '✓' : (st === 'now' ? '★' : '')) + '</button></div>';
+    }).join('') + '</div>';
+  }
+
   v.innerHTML =
     opHtml +
 
-    '<div class="card hero base-hero">' +
-    '<h1>기지에 온 걸 환영해요 ⚡</h1>' +
-    '<p class="cheer">' + esc(todayCheer()) + '</p>' +
-    levelHtml +
+    '<div class="duo-stats">' +
+    '<span class="today-pill">Lv.' + li.n + '</span>' +
+    '<span class="today-pill" id="goalPill" title="클릭해서 하루 목표 바꾸기" style="cursor:pointer">🎯 <b>' + today.answered + '/' + (S.goal || 15) + '</b>' + (today.answered >= (S.goal || 15) ? ' ✨' : '') + '</span>' +
+    (streak > 1 ? '<span class="today-pill">🔥 <b>' + streak + '일</b></span>' : '') +
     ddayHtml +
-    '<div id="ddayEditWrap"></div>' +
-    '<div class="today-line">' +
-    '<span class="today-pill" id="goalPill" title="클릭해서 하루 목표 바꾸기" style="cursor:pointer">🎯 오늘 <b>' + today.answered + ' / ' + (S.goal || 15) + '문제</b>' + (today.answered >= (S.goal || 15) ? ' 달성! ✨' : '') + '</span>' +
-    (streak > 1 ? '<span class="today-pill">🔥 <b>' + streak + '일</b> 연속 공부 중</span>' : '') +
-    '</div>' +
-    '</div>' +
+    '</div><div id="ddayEditWrap"></div>' +
 
     (window.crunchBannerHtml ? window.crunchBannerHtml() : '') +
     (window.installBarHtml ? window.installBarHtml() : '') +
     topAlert +
-
+    pathHtml +
     gardenBlock +
     (window.questCardHtml ? window.questCardHtml() : '') +
     (window.piggyHtml ? window.piggyHtml() : '') +
@@ -702,6 +719,12 @@ function renderHome() {
 
   $('#btnRandom').onclick = function () { startSession('random'); };
   $('#btnJourney').onclick = function () { if (window.renderJourney) window.renderJourney(); };
+  document.querySelectorAll('[data-jn]').forEach(function (b) {
+    b.onclick = function () {
+      var f = window.journeyFlat()[parseInt(b.getAttribute('data-jn'), 10)];
+      if (f && window.journeyPlayNode) { if (window.uiSound) uiSound('select'); journeyPlayNode(f.subjKey, f.ui); }
+    };
+  });
   $('#opGo').onclick = function () {
     if (!window.renderRogue) { startSession('random'); return; }
     // 진행 중인 작전이 있으면 곧바로 그 자리로, 없으면 구역 선택으로
