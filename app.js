@@ -1088,94 +1088,70 @@ function startUnitQuiz(subjKey, ui) {
   renderQuiz();
 }
 
-/* ---------- 레슨 = 비주얼 노벨 "설계도 복원" ----------
-   레슨 데이터(steps)는 그대로 두고 연출만 게임으로 바꿨다.
-   정비반장이 대사로 가르치고, 글자가 타자기처럼 흐르고, 화면을 탭해서 진행한다. */
-var VN_SPEED = 16;   // ms/글자 — 탭하면 즉시 완성
+/* ---------- 레슨 = 훈련 세션 (듀오링고식 라운드) ----------
+   브리핑(짧은 카드) -> 스피드 탭(제한시간 과녁) -> OX 속판 -> 실전 1문제 -> 결과.
+   129개 레슨 데이터를 즉석에서 라운드로 변환한다. 새 사실은 만들지 않는다 —
+   OX 문장도 검증된 문답의 정답/오답 선택지를 그대로 재조합한 것.
+   틀리거나 시간이 끝나도 잃는 건 없다. 콤보만 끊긴다. */
 
-function vnReduced() {
-  return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-function vnStopType() {
-  if (lessonRun && lessonRun.timer) { clearInterval(lessonRun.timer); lessonRun.timer = null; }
-}
-function vnType(el, text, onDone) {
-  vnStopType();
-  if (vnReduced() || lessonRun.instant) { el.textContent = text; onDone(); return; }
-  var chars = Array.from(text), i = 0;
-  el.textContent = '';
-  lessonRun.skip = function () {
-    vnStopType(); lessonRun.skip = null;
-    el.textContent = text; onDone();
-  };
-  lessonRun.timer = setInterval(function () {
-    el.textContent += chars[i++];
-    // 아주 조용한 말소리 틱 (S.mute 는 beep 이 스스로 확인)
-    if (i % 4 === 0 && typeof beep === 'function') beep(600 + (i % 3) * 70, 0.018, 'square', 0.02);
-    if (i >= chars.length) { vnStopType(); lessonRun.skip = null; onDone(); }
-  }, VN_SPEED);
-}
-/* 화면 탭 = 타이핑 중이면 즉시 완성, 다 나왔으면 다음 대사 */
-function vnTap() {
-  if (!lessonRun) return;
-  if (lessonRun.skip) { lessonRun.skip(); return; }
-  var steps = lessonRun.steps;
-  if (lessonRun.idx >= steps.length) return;
-  var step = steps[lessonRun.idx];
-  if (step.kind === 'choice' && !lessonRun.picks[lessonRun.idx]) return;   // 골라야 지나간다
-  if (lessonRun.asmActive && !lessonRun.asmDone) return;                   // 조립을 끝내야 지나간다
-  if (typeof beep === 'function') beep(500, 0.04, 'triangle', 0.06);
-  lessonRun.idx++;
-  renderLesson();
-}
-
-/* ---------- 설명문을 조립 부품으로 쪼갠다 ----------
-   문장 경계(., !, ?) 우선, 긴 문장은 괄호 밖 쉼표에서 한 번 더.
-   공식 "F = 9×10⁹ × (Q₁×Q₂)/r²" 같은 건 괄호 깊이를 세서 쪼개지 않는다. */
-function vnChunks(text) {
-  function splitBy(str, isCut, minLen) {
-    var out = [], buf = '', depth = 0, cs = Array.from(str);
-    for (var i = 0; i < cs.length; i++) {
-      var c = cs[i]; buf += c;
-      if (c === '(') depth++;
-      if (c === ')') depth = Math.max(0, depth - 1);
-      if (depth === 0 && isCut(c, cs[i + 1]) && Array.from(buf).length >= minLen) {
-        out.push(buf.trim()); buf = '';
-      }
-    }
-    if (buf.trim()) out.push(buf.trim());
-    return out;
-  }
-  var parts = splitBy(text, function (c, nx) {
-    return (c === '.' || c === '!' || c === '?') && (!nx || nx === ' ');
-  }, 4);
-  var out = [];
-  parts.forEach(function (p) {
-    if (Array.from(p).length <= 26) { out.push(p); return; }
-    out = out.concat(splitBy(p, function (c) { return c === ','; }, 10));
+function buildLessonRounds(steps) {
+  var stories = [], choices = [];
+  steps.forEach(function (st) { (st.kind === 'choice' && st.options ? choices : stories).push(st); });
+  var rounds = [];
+  var half = Math.ceil(stories.length / 2);
+  if (stories.length) rounds.push({ type: 'brief', cards: stories.slice(0, half) });
+  if (choices[0]) rounds.push({ type: 'tap', q: choices[0] });
+  if (stories.length > half) rounds.push({ type: 'brief', cards: stories.slice(half) });
+  var ox = [];
+  choices.forEach(function (c) {
+    var wrong = (c.answer + 1) % c.options.length;
+    ox.push({ s: c.text + ' → ' + c.options[c.answer], o: true, why: c.right || '맞아요!' });
+    ox.push({ s: c.text + ' → ' + c.options[wrong], o: false, why: c.wrong || '아니에요!' });
   });
-  out = out.filter(function (x) { return x; });
-  // 부품이 너무 많으면 짧은 이웃끼리 합친다 (트레이가 넘치지 않게)
-  while (out.length > 6) {
-    var bi = 0, bl = Infinity;
-    for (var i = 0; i < out.length - 1; i++) {
-      var l = out[i].length + out[i + 1].length;
-      if (l < bl) { bl = l; bi = i; }
-    }
-    out.splice(bi, 2, out[bi] + ' ' + out[bi + 1]);
-  }
-  return out;
+  ox = shuffle(ox).slice(0, 4);
+  if (ox.length >= 2) rounds.push({ type: 'ox', items: ox });
+  for (var i = 1; i < choices.length; i++) rounds.push({ type: 'tap', q: choices[i] });
+  rounds.push({ type: 'quiz' });
+  return rounds;
+}
+
+function ldClearTimers() {
+  if (lessonRun && lessonRun.tm) { clearTimeout(lessonRun.tm); lessonRun.tm = null; }
+}
+function ldNextRound() {
+  // 레슨 화면을 이미 떠났으면 아무것도 하지 않는다 —
+  // 배너 타이머가 늦게 발화해 홈 위에 레슨을 다시 그리는 사고 방지
+  if (!lessonRun || !document.getElementById('ldSession')) return;
+  ldClearTimers(); lessonRun.ri++; renderLesson();
+}
+function ldBanner(ok, msg, cb, delay) {
+  var b = document.getElementById('ldBanner');
+  if (b) { b.className = 'ld-banner on ' + (ok ? 'ok' : 'no'); b.textContent = msg; }
+  lessonRun.tm = setTimeout(function () {
+    if (lessonRun && document.getElementById('ldSession')) cb();
+  }, delay || 1000);
+}
+function ldHud() {
+  var segs = '';
+  for (var i = 0; i < lessonRun.rounds.length; i++)
+    segs += '<i class="ld-seg' + (i < lessonRun.ri ? ' done' : (i === lessonRun.ri ? ' now' : '')) + '"></i>';
+  return '<div class="ld-hud"><div class="ld-segs">' + segs + '</div>' +
+    (lessonRun.combo >= 2 ? '<span class="ld-combo">🔥 ' + lessonRun.combo + '연속</span>' : '') + '</div>';
 }
 
 function renderLesson() {
   var subj = subjectByKey(lessonRun.subjKey);
   var unit = subj.units[lessonRun.ui];
-  var steps = lessonRun.steps;
   var v = $('#view');
-  var done = lessonRun.idx >= steps.length;
-  vnStopType(); lessonRun.skip = null;
+  ldClearTimers();
+  if (!lessonRun.rounds) {
+    lessonRun.rounds = buildLessonRounds(lessonRun.steps);
+    lessonRun.ri = 0; lessonRun.bi = 0; lessonRun.oi = 0;
+    lessonRun.combo = 0; lessonRun.best = 0; lessonRun.hits = 0; lessonRun.miss = 0;
+    lessonRun.t0 = Date.now();
+  }
 
-  if (done) {
+  if (lessonRun.ri >= lessonRun.rounds.length) {
     var ukey = unitKeyOf(lessonRun.subjKey, lessonRun.ui);
     var firstTime = !(S.lessonProg[ukey] && S.lessonProg[ukey].done);
     if (firstTime) {
@@ -1187,12 +1163,20 @@ function renderLesson() {
       if (window.celebrate) celebrate('small');
     }
     if (lessonRun.journey && window.journeyMarkTaught) window.journeyMarkTaught(lessonRun.subjKey, lessonRun.ui);
+    var tot = lessonRun.hits + lessonRun.miss;
+    var acc = tot ? Math.round(lessonRun.hits / tot * 100) : 100;
+    var secs = Math.max(1, Math.round((Date.now() - lessonRun.t0) / 1000));
     v.innerHTML =
       '<div class="card result-hero vn-done">' +
-      '<div class="vn-stamp">복원 완료</div>' +
-      '<div class="vn-done-art">' + esc((steps[0] && steps[0].art) || '📘') + '</div>' +
+      '<div class="vn-stamp">훈련 완료</div>' +
+      '<div class="vn-done-art">' + esc((lessonRun.steps[0] && lessonRun.steps[0].art) || '📘') + '</div>' +
       '<div style="font-weight:800;font-size:1.15rem;margin-top:6px">' +
       esc(unit.topic) + ' ' + (firstTime ? '+15 XP' : '(복습)') + '</div>' +
+      '<div class="ld-stats">' +
+      '<div><b>' + acc + '%</b><span>명중률</span></div>' +
+      '<div><b>' + lessonRun.best + '</b><span>최고 연속</span></div>' +
+      '<div><b>' + Math.floor(secs / 60) + ':' + ('0' + secs % 60).slice(-2) + '</b><span>시간</span></div>' +
+      '</div>' +
       '<div class="msg">' + (lessonRun.rogue ? '이 지식이 카드가 되어 덱에 들어가요.' :
         lessonRun.journey ? '이제 방금 배운 걸 바로 문제로 확인해요. 맞히면 다음 단계가 열려요!' :
           '배운 걸 바로 문제로 확인하면 기억에 2배로 남아요!') + '</div>' +
@@ -1216,181 +1200,164 @@ function renderLesson() {
     return;
   }
 
-  var step = steps[lessonRun.idx];
-  var picked = lessonRun.picks[lessonRun.idx];
-  lessonRun.doneSteps = lessonRun.doneSteps || {};
+  var round = lessonRun.rounds[lessonRun.ri];
+  var head = '<div class="quiz-head"><span class="quiz-mode">📖 훈련 · ' + esc(subj.name) + '</span>' +
+    '<span class="quiz-progress">' + (lessonRun.ri + 1) + ' / ' + lessonRun.rounds.length + '</span></div>';
+  var myRi = lessonRun.ri;
+  function alive() { return lessonRun && lessonRun.ri === myRi && document.getElementById('ldSession'); }
 
-  // 이 단계를 어떻게 플레이할지 정한다.
-  // 설명(story)은 "부품 조립"이 기본 — 읽는 게 아니라 조각을 순서대로 끼워 회로를 잇는다.
-  // 이미 지나온 단계·읽기 모드에서는 그냥 보여준다.
-  var chunks = (step.kind !== 'choice') ? vnChunks(step.text) : null;
-  var assemble = !!(chunks && chunks.length >= 3 && !S.lessonReadMode &&
-    !lessonRun.doneSteps[lessonRun.idx] && !lessonRun.instant);
-  lessonRun.asmActive = assemble;
-  lessonRun.asmDone = !assemble;
-
-  // 회로 진행도: 대사 하나가 마디 하나. 문답 마디는 다이아몬드로 표시
-  var dots = steps.map(function (s, i) {
-    return '<i class="vn-node' + (i < lessonRun.idx ? ' done' : (i === lessonRun.idx ? ' now' : '')) +
-      (s.kind === 'choice' ? ' q' : '') + '"></i>';
-  }).join('');
-
-  var optsHtml = '';
-  if (step.kind === 'choice' && step.options) {
-    optsHtml = '<div class="vn-opts" id="vnOpts"' + (picked ? '' : ' hidden') + '>' +
-      step.options.map(function (o, oi) {
-        var cls = 'vn-opt', dis = '';
-        if (picked) {
-          dis = ' disabled';
-          if (oi === step.answer) cls += ' right';
-          else if (oi === picked.pick) cls += ' wrong';
-          else cls += ' dim';
-        }
-        return '<button class="' + cls + '" data-lopt="' + oi + '"' + dis + '>' + esc(o) + '</button>';
-      }).join('') + '</div>';
+  /* --- 브리핑: 큰 카드, 탭탭탭 빠르게 --- */
+  if (round.type === 'brief') {
+    var card = round.cards[lessonRun.bi];
+    v.innerHTML = head + ldHud() +
+      '<div id="ldSession">' +
+      '<div class="ld-round">브리핑 ' + (lessonRun.bi + 1) + ' / ' + round.cards.length + ' · ' + esc(unit.topic) + '</div>' +
+      '<div class="ld-brief" id="ldTapArea">' +
+      '<div class="ld-art">' + esc(card.art || '📘') + '</div>' +
+      '<div class="ld-text">' + esc(card.text) + '</div>' +
+      '<span class="vn-cue">▼ 탭</span></div></div>';
+    $('#ldTapArea').onclick = function () {
+      if (typeof beep === 'function') beep(520, 0.04, 'triangle', 0.06);
+      lessonRun.bi++;
+      if (lessonRun.bi >= round.cards.length) { lessonRun.bi = 0; ldNextRound(); }
+      else renderLesson();
+    };
+    window.scrollTo(0, 0);
+    return;
   }
 
-  // 조립 모드: 완성 칸(위) + 부품 트레이(아래, 섞여 있음)
-  var asmHtml = '';
-  if (assemble) {
-    var order = chunks.map(function (_, i) { return i; });
-    for (var t = 0; t < 5; t++) {
-      order = shuffle(order);
-      if (order.some(function (x, i) { return x !== i; })) break;
-    }
-    lessonRun.asm = { chunks: chunks, next: 0, wrongs: 0 };
-    asmHtml =
-      '<div class="vn-asm-label">부품을 순서대로 끼워 설명을 완성하세요</div>' +
-      '<div class="vn-tray" id="vnTray">' +
-      order.map(function (ci) {
-        return '<button class="vn-part" data-chunk="' + ci + '">' + esc(chunks[ci]) + '</button>';
-      }).join('') + '</div>';
-  }
-
-  v.innerHTML =
-    '<div class="quiz-head"><span class="quiz-mode">📖 설계도 · ' + esc(subj.name) + '</span>' +
-    '<span class="quiz-progress">' + (lessonRun.idx + 1) + ' / ' + steps.length + '</span></div>' +
-    '<div class="vn-track">' + dots + '</div>' +
-    '<div class="vn-scene" id="vnScene">' +
-    '<div class="vn-stage">' + esc(step.art || '📘') + '</div>' +
-    '<div class="vn-box' + (assemble ? ' asm' : '') + '">' +
-    '<span class="vn-name">🧑‍🔧 정비반장</span>' +
-    '<span class="vn-topic">' + esc(unit.topic) + '</span>' +
-    '<div class="vn-text" id="vnText"></div>' +
-    asmHtml +
-    optsHtml +
-    '<div class="vn-react" id="vnReact"></div>' +
-    '<span class="vn-cue" id="vnCue" hidden>▼ 탭해서 계속</span>' +
-    '</div></div>' +
-    '<div class="vn-foot">' +
-    (lessonRun.idx > 0 ? '<button class="btn btn-ghost btn-sm" id="vnBack">‹ 이전</button>' : '<span></span>') +
-    '<button class="btn btn-ghost btn-sm" id="vnMode">' + (S.lessonReadMode ? '조립하며 배우기' : '그냥 읽기') + '</button>' +
-    '</div>';
-
-  $('#vnScene').onclick = function (e) {
-    if (e.target.closest && e.target.closest('.vn-opt,.vn-part')) return;   // 부품·선택지는 따로 처리
-    vnTap();
-  };
-  var bk = $('#vnBack');
-  if (bk) bk.onclick = function (e) {
-    e.stopPropagation();
-    vnStopType(); lessonRun.skip = null;
-    lessonRun.idx--; lessonRun.instant = true;   // 다시 보는 대사는 즉시 표시
-    renderLesson();
-  };
-  $('#vnMode').onclick = function (e) {
-    e.stopPropagation();
-    S.lessonReadMode = !S.lessonReadMode; saveState();
-    vnStopType(); lessonRun.skip = null;
-    renderLesson();
-  };
-
-  function afterText() {
-    if (step.kind === 'choice' && !picked) {
-      var op = $('#vnOpts'); if (op) op.hidden = false;
-    } else if (picked) {
-      // 뒤로 돌아와 이미 답한 문답: 반응까지 즉시 보여준다
-      var rEl = $('#vnReact');
-      rEl.className = 'vn-react on ' + (picked.ok ? 'ok' : 'no');
-      rEl.textContent = (picked.ok ? '🎉 ' : '💪 ') + (picked.ok ? (step.right || '정답이에요!') : (step.wrong || '괜찮아요!'));
-      $('#vnCue').hidden = false;
-    } else {
-      $('#vnCue').hidden = false;
-    }
-  }
-
-  if (assemble) {
-    // 조립 플레이: 다음 순서의 부품을 골라 끼운다. 틀려도 잃는 건 없고,
-    // 두 번 헤매면 다음 부품이 반짝여서 막히지 않는다.
-    var textEl = $('#vnText');
-    document.querySelectorAll('.vn-part').forEach(function (b) {
-      b.onclick = function (e) {
-        e.stopPropagation();
-        var a = lessonRun.asm;
-        var ci = parseInt(b.getAttribute('data-chunk'), 10);
-        var okChunk = ci === a.next || a.chunks[ci] === a.chunks[a.next];
-        if (!okChunk) {
-          a.wrongs++;
-          b.classList.add('nope');
-          setTimeout(function () { b.classList.remove('nope'); }, 340);
-          if (typeof beep === 'function') beep(200, 0.1, 'sawtooth', 0.07);
-          if (a.wrongs >= 2) {
-            var nb = document.querySelector('.vn-part[data-chunk="' + a.next + '"]');
-            if (nb) nb.classList.add('hint');
-          }
-          return;
-        }
-        a.wrongs = 0;
-        textEl.textContent += (textEl.textContent ? ' ' : '') + a.chunks[a.next];
-        a.next++;
-        b.disabled = true; b.classList.add('used');
-        if (typeof beep === 'function') beep(560 + a.next * 60, 0.06, 'triangle', 0.1);
-        if (a.next >= a.chunks.length) {
-          // 회로 연결 완료 — 불이 들어온다
-          lessonRun.asmDone = true;
-          lessonRun.doneSteps[lessonRun.idx] = true;
-          addXP(1, true);
-          var box = document.querySelector('.vn-box');
-          if (box) box.classList.add('lit');
-          var tray = $('#vnTray'); if (tray) tray.classList.add('gone');
-          if (typeof beep === 'function') { beep(660, 0.1, 'triangle', 0.12); beep(990, 0.14, 'triangle', 0.1, 0.08); }
+  /* --- 스피드 탭: 제한시간 안에 맞는 과녁을 쏜다 --- */
+  if (round.type === 'tap') {
+    var q = round.q;
+    var slots = shuffle([0, 1, 2, 3]).slice(0, q.options.length);
+    v.innerHTML = head + ldHud() +
+      '<div id="ldSession">' +
+      '<div class="ld-round">⚡ 스피드 탭 — 맞는 과녁을 쏘세요!</div>' +
+      '<div class="ld-prompt">' + esc(q.text) + '</div>' +
+      '<div class="ld-timerbar"><i id="ldTimer"></i></div>' +
+      '<div class="ld-arena">' +
+      q.options.map(function (o, oi) {
+        return '<button class="ld-bub s' + slots[oi] + '" data-act="' + oi + '">' + esc(o) + '</button>';
+      }).join('') + '</div>' +
+      '<div class="ld-banner" id="ldBanner"></div></div>';
+    var tEl = document.getElementById('ldTimer');
+    requestAnimationFrame(function () { requestAnimationFrame(function () { if (tEl) tEl.style.width = '0%'; }); });
+    lessonRun.tm = setTimeout(function () {
+      if (!alive()) return;
+      lessonRun.miss++; lessonRun.combo = 0;
+      var rb = document.querySelector('.ld-bub[data-act="' + q.answer + '"]');
+      if (rb) rb.classList.add('reveal');
+      document.querySelectorAll('.ld-bub').forEach(function (x) { x.disabled = true; });
+      if (typeof SFX !== 'undefined') SFX.miss();
+      ldBanner(false, '⏱ 시간 끝! 정답: ' + q.options[q.answer], ldNextRound, 1600);
+    }, 10000);
+    document.querySelectorAll('.ld-bub').forEach(function (b) {
+      b.onclick = function () {
+        if (!alive()) return;
+        var oi = parseInt(b.getAttribute('data-act'), 10);
+        if (oi === q.answer) {
+          ldClearTimers();
+          lessonRun.hits++; lessonRun.combo++;
+          lessonRun.best = Math.max(lessonRun.best, lessonRun.combo);
+          addXP(2, true);
+          b.classList.add('hit');
+          document.querySelectorAll('.ld-bub').forEach(function (x) { x.disabled = true; });
+          if (typeof SFX !== 'undefined') SFX.hit(lessonRun.combo);
           if (window.haptic) haptic('ok');
-          $('#vnCue').hidden = false;
+          ldBanner(true, '💥 ' + (q.right || '명중!'), ldNextRound, 1300);
+        } else {
+          lessonRun.miss++; lessonRun.combo = 0;
+          b.classList.add('nope'); b.disabled = true;
+          if (typeof beep === 'function') beep(200, 0.12, 'sawtooth', 0.09);
         }
       };
     });
-  } else {
-    if (step.kind !== 'choice') lessonRun.doneSteps[lessonRun.idx] = true;
-    vnType($('#vnText'), step.text, afterText);
+    window.scrollTo(0, 0);
+    return;
   }
-  lessonRun.instant = false;
 
-  document.querySelectorAll('#vnOpts .vn-opt:not([disabled])').forEach(function (b) {
-    b.onclick = function (e) {
-      e.stopPropagation();
-      if (lessonRun.picks[lessonRun.idx]) return;
-      var oi = parseInt(b.getAttribute('data-lopt'), 10);
-      var ok = oi === step.answer;
-      lessonRun.picks[lessonRun.idx] = { pick: oi, ok: ok };
+  /* --- OX 속판 --- */
+  if (round.type === 'ox') {
+    var item = round.items[lessonRun.oi];
+    v.innerHTML = head + ldHud() +
+      '<div id="ldSession">' +
+      '<div class="ld-round">⏱ OX 속판 ' + (lessonRun.oi + 1) + ' / ' + round.items.length + '</div>' +
+      '<div class="ld-ox-state">' + esc(item.s) + '</div>' +
+      '<div class="ld-timerbar fast"><i id="ldTimer"></i></div>' +
+      '<div class="ld-oxrow">' +
+      '<button class="ld-ox o" data-act="o">O</button>' +
+      '<button class="ld-ox x" data-act="x">X</button></div>' +
+      '<div class="ld-banner" id="ldBanner"></div></div>';
+    var tEl2 = document.getElementById('ldTimer');
+    requestAnimationFrame(function () { requestAnimationFrame(function () { if (tEl2) tEl2.style.width = '0%'; }); });
+    var oxDone = function (pick) {
+      if (!alive()) return;
+      ldClearTimers();
+      var ok = pick !== null && ((pick === 'o') === item.o);
+      document.querySelectorAll('.ld-ox').forEach(function (x) { x.disabled = true; });
+      var rightBtn = document.querySelector('.ld-ox.' + (item.o ? 'o' : 'x'));
+      if (rightBtn) rightBtn.classList.add('right');
       if (ok) {
-        addXP(3);
-        if (typeof beep === 'function') { beep(660, 0.09, 'triangle', 0.12); beep(880, 0.1, 'triangle', 0.1, 0.07); }
+        lessonRun.hits++; lessonRun.combo++;
+        lessonRun.best = Math.max(lessonRun.best, lessonRun.combo);
+        addXP(2, true);
+        if (typeof SFX !== 'undefined') SFX.hit(lessonRun.combo);
       } else {
-        if (typeof beep === 'function') beep(220, 0.14, 'sawtooth', 0.1);
-        if (window.haptic) haptic('no');
+        lessonRun.miss++; lessonRun.combo = 0;
+        if (typeof beep === 'function') beep(200, 0.12, 'sawtooth', 0.09);
       }
-      // 화면을 다시 그리지 않고 제자리에서 판정 표시 (질문 타이핑이 다시 돌지 않게)
-      document.querySelectorAll('#vnOpts .vn-opt').forEach(function (x, xi) {
+      var msg = (pick === null ? '⏱ 시간 끝! ' : (ok ? '💥 ' : '')) + item.why;
+      ldBanner(ok, msg, function () {
+        lessonRun.oi++;
+        if (lessonRun.oi >= round.items.length) { lessonRun.oi = 0; ldNextRound(); }
+        else renderLesson();
+      }, 1600);
+    };
+    lessonRun.tm = setTimeout(function () { oxDone(null); }, 7000);
+    document.querySelectorAll('.ld-ox').forEach(function (b) {
+      b.onclick = function () { oxDone(b.getAttribute('data-act')); };
+    });
+    window.scrollTo(0, 0);
+    return;
+  }
+
+  /* --- 실전 1문제: 진짜 기출 유형. 시간 제한 없고 기록에 남는다 --- */
+  var qi = { subjKey: lessonRun.subjKey, ui: lessonRun.ui, which: whichToServe(lessonRun.subjKey, lessonRun.ui) };
+  var g = getQuestion(qi);
+  if (!g) { ldNextRound(); return; }
+  v.innerHTML = head + ldHud() +
+    '<div id="ldSession">' +
+    '<div class="ld-round">🎯 실전 확인 — 시간 제한 없어요. 방금 배운 걸로 풀어요!</div>' +
+    '<div class="card"><div class="qtext">' + esc(g.q.q) + '</div>' +
+    '<div class="choices">' +
+    g.q.choices.map(function (c, i) {
+      return '<button class="choice" data-act="' + i + '"><span class="num">' + CIRCLED[i] + '</span><span>' + esc(c) + '</span></button>';
+    }).join('') + '</div>' +
+    '<div class="ld-banner" id="ldBanner"></div>' +
+    '<div class="quiz-next" id="ldNextWrap" hidden><button class="btn btn-primary" id="ldNext">결과 보기 ▶</button></div>' +
+    '</div></div>';
+  document.querySelectorAll('#ldSession .choice').forEach(function (b) {
+    b.onclick = function () {
+      if (!alive()) return;
+      var i = parseInt(b.getAttribute('data-act'), 10);
+      var ok = i === g.q.answer;
+      document.querySelectorAll('#ldSession .choice').forEach(function (x, xi) {
         x.disabled = true;
-        if (xi === step.answer) x.classList.add('right');
-        else if (xi === oi) x.classList.add('wrong');
+        if (xi === g.q.answer) x.classList.add(xi === i ? 'picked-right' : 'reveal-right');
+        else if (xi === i) x.classList.add('picked-wrong');
         else x.classList.add('dim');
       });
-      var rEl = $('#vnReact');
-      rEl.className = 'vn-react on ' + (ok ? 'ok' : 'no');
-      vnType(rEl,
-        (ok ? '🎉 ' : '💪 ') + (ok ? (step.right || '정답이에요!') : (step.wrong || '괜찮아요!')),
-        function () { $('#vnCue').hidden = false; });
+      recordAttempt(qi.subjKey, qi.ui, qi.which, ok, {});
+      if (ok) { lessonRun.hits++; lessonRun.combo++; lessonRun.best = Math.max(lessonRun.best, lessonRun.combo); }
+      else { lessonRun.miss++; lessonRun.combo = 0; }
+      var bn = document.getElementById('ldBanner');
+      if (bn) {
+        bn.className = 'ld-banner on ' + (ok ? 'ok' : 'no');
+        bn.textContent = (ok ? '🎉 방금 배운 걸 바로 맞혔어요! ' : '💪 괜찮아요. ') + g.q.explain;
+      }
+      if (typeof SFX !== 'undefined') (ok ? SFX.victory : SFX.miss)();
+      document.getElementById('ldNextWrap').hidden = false;
+      document.getElementById('ldNext').onclick = ldNextRound;
     };
   });
   window.scrollTo(0, 0);
@@ -1847,12 +1814,16 @@ document.addEventListener('keydown', function (e) {
     var djp = document.querySelectorAll('[data-djpick]');
     if (djp.length && !djp[0].disabled && e.key >= '1' && e.key <= '4' && djp[parseInt(e.key, 10) - 1]) { djp[parseInt(e.key, 10) - 1].click(); return; }
   }
-  // 레슨(설계도) 키보드 — Enter/Space 진행, 1~4 선택
-  if (lessonRun && document.getElementById('vnScene')) {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); vnTap(); return; }
+  // 레슨(훈련 세션) 키보드 — 1~4 과녁/선택, Enter/Space 진행
+  if (lessonRun && document.getElementById('ldSession')) {
     if (e.key >= '1' && e.key <= '4') {
-      var lo = document.querySelectorAll('#vnOpts .vn-opt:not([disabled])')[parseInt(e.key, 10) - 1];
-      if (lo) lo.click();
+      var lb = document.querySelectorAll('#ldSession [data-act]:not([disabled])')[parseInt(e.key, 10) - 1];
+      if (lb) lb.click(); return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      var ln = document.getElementById('ldNext') || document.getElementById('ldTapArea');
+      if (ln) ln.click();
     }
     return;
   }
