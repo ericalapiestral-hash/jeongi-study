@@ -2660,3 +2660,73 @@ html[data-theme="light"] .ld-timerbar { background: var(--bg-2); }
 .duo-stats .today-pill { border: 1px solid var(--line); box-shadow: var(--inset-hi); }
 
 @media (prefers-reduced-motion: reduce) { .op-card::before { animation: none; } }
+
+/* ---------- 🥚 전기 정령 ---------- */
+.spirit-card {
+  text-align: center; padding: 26px 20px 20px; margin-bottom: 14px;
+  background:
+    radial-gradient(70% 90% at 50% 30%, rgba(232, 196, 96, .1), transparent 70%),
+    linear-gradient(178deg, var(--card-2), var(--card));
+  border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow-lg), var(--inset-hi); position: relative;
+}
+.sp-say {
+  display: inline-block; background: var(--bg); border: 1px solid var(--line);
+  border-radius: 14px; padding: 8px 16px; font-size: .92rem; color: var(--ink);
+  position: relative; margin-bottom: 12px; box-shadow: var(--shadow);
+}
+.sp-say::after {
+  content: ''; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%) rotate(45deg);
+  width: 10px; height: 10px; background: var(--bg);
+  border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.sp-body {
+  font-size: 4.6rem; line-height: 1.2;
+  filter: drop-shadow(0 8px 20px rgba(232, 196, 96, .35));
+  animation: spBob 2.6s ease-in-out infinite;
+}
+@keyframes spBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+.sp-body.eat { animation: spEat .5s ease-in-out 3; }
+@keyframes spEat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14) rotate(-5deg); } }
+.sp-body.happy { animation: spHappy .6s cubic-bezier(.2, 1.4, .4, 1) 2; }
+@keyframes spHappy { 0%, 100% { transform: none; } 50% { transform: translateY(-14px) rotate(6deg); } }
+.spirit-card.evolved .sp-body { animation: spEvolve 1s cubic-bezier(.2, 1.3, .4, 1); }
+@keyframes spEvolve { 0% { transform: scale(.3); filter: brightness(3); } 60% { transform: scale(1.2); } 100% { transform: none; } }
+.sp-name { font-size: 1.1rem; font-weight: 800; margin-top: 6px; }
+.sp-food { font-size: .78rem; color: var(--ink-soft); font-weight: 600; margin-left: 6px; }
+.sp-grow { margin-top: 10px; }
+.sp-grow-bar {
+  height: 9px; border-radius: 99px; overflow: hidden; margin: 0 auto 6px; max-width: 300px;
+  background: rgba(0, 0, 0, .35); box-shadow: inset 0 1px 3px rgba(0, 0, 0, .5);
+}
+html[data-theme="light"] .sp-grow-bar { background: var(--bg-2); }
+.sp-grow-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--warn)); box-shadow: 0 0 8px rgba(232, 196, 96, .5); }
+.sp-grow span { font-size: .82rem; color: var(--ink-soft); }
+
+/* ---------- 오늘의 한 판 버튼 ---------- */
+.daily-btn {
+  display: block; width: 100%; margin-bottom: 14px; cursor: pointer;
+  font-family: inherit; font-size: 1.3rem; font-weight: 800; color: #f2ffe8;
+  background: linear-gradient(178deg, #7cc95b, #4d8f34);
+  border: 0; border-bottom: 7px solid #2d5a1c; border-radius: 18px;
+  padding: 18px 16px 15px; text-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+  box-shadow: 0 6px 20px rgba(77, 143, 52, .35), var(--inset-hi);
+  transition: transform .1s, border-bottom-width .1s, filter .15s;
+}
+.daily-btn small { display: block; font-size: .82rem; font-weight: 600; opacity: .9; margin-top: 3px; }
+.daily-btn:hover { filter: brightness(1.08); }
+.daily-btn:active { transform: translateY(4px); border-bottom-width: 3px; }
+.daily-btn.again {
+  background: linear-gradient(178deg, #a5813c, #7a5f28); border-bottom-color: #4a3a17;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .4), var(--inset-hi);
+}
+
+/* ---------- 한 판 인터스티셜 · 완료 ---------- */
+.daily-mid, .daily-done { text-align: center; padding: 30px 22px; }
+.daily-mid .sp-body, .daily-done .sp-body { font-size: 3.6rem; }
+.dm-title, .dd-title { font-size: 1.15rem; font-weight: 800; margin: 10px 0 6px; }
+.daily-mid .btn { margin-top: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-body, .sp-body.eat, .sp-body.happy, .spirit-card.evolved .sp-body { animation: none; }
+}

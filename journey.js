@@ -219,6 +219,7 @@ function journeyNodeComplete() {
   if (firstSolve) addXP(20, true);
   saveState(); checkBadges();
   jRun = null;
+  if (window.dailyOnNodeDone && window.dailyOnNodeDone()) return;   // 오늘의 한 판 중이면 완료 화면으로
   renderJourney(true);
 }
 

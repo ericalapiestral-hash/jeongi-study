@@ -394,7 +394,7 @@ function startFocusSession() {
   renderQuiz();
 }
 
-var MODE_NAMES = { subject: '과목 공부', random: '오늘의 공부', review: '오답 복습', exam: '미니 모의고사', focus: '약점 집중 공부', single: '개념 확인', garden: '🪴 물 주기' };
+var MODE_NAMES = { subject: '과목 공부', random: '오늘의 공부', review: '오답 복습', exam: '미니 모의고사', focus: '약점 집중 공부', single: '개념 확인', garden: '🪴 물 주기', daily: '🥚 정령 밥주기 · 복습' };
 
 function currentItem() { return session.queue[session.idx]; }
 
@@ -666,8 +666,13 @@ function renderHome() {
     }).join('') + '</div>';
   }
 
+  var doneToday = S.dailyDone === todayStr();
   v.innerHTML =
-    opHtml +
+    (window.spiritHomeHtml ? window.spiritHomeHtml() : '') +
+
+    '<button class="daily-btn' + (doneToday ? ' again' : '') + '" id="dailyGo">' +
+    (doneToday ? '한 판 더 하기' : '▶ 오늘의 한 판') +
+    '<small>' + (doneToday ? '정령이 아직 더 먹고 싶대요' : '복습 조금 + 새 개념 하나 · 5분이면 끝나요') + '</small></button>' +
 
     '<div class="duo-stats">' +
     '<span class="today-pill">Lv.' + li.n + '</span>' +
@@ -679,10 +684,14 @@ function renderHome() {
     (window.crunchBannerHtml ? window.crunchBannerHtml() : '') +
     (window.installBarHtml ? window.installBarHtml() : '') +
     topAlert +
+
+    '<details class="card more-menu"><summary>🎮 더 놀기 — 출격 · 학습 경로 · 내 것들</summary>' +
+    opHtml +
     pathHtml +
     gardenBlock +
     (window.questCardHtml ? window.questCardHtml() : '') +
     (window.piggyHtml ? window.piggyHtml() : '') +
+    '</details>' +
 
     '<details class="card more-menu"><summary>🏗 기지 시설 — 혼자 훈련하기 · 도구 · 과목별</summary>' +
     '<div class="mode-grid">' +
@@ -717,6 +726,8 @@ function renderHome() {
     '<p>이 앱의 사용법: 틀리면 해설과 개념 카드를 읽고, 잠시 후 나오는 <b>쌍둥이 확인 문제</b>를 맞혀서 "진짜 이해했는지" 확인하세요. 오답노트의 문제를 모두 ✅로 만드는 게 목표예요.</p>' +
     '</details>';
 
+  var dg = $('#dailyGo');
+  if (dg) dg.onclick = function () { if (window.startDailyRun) window.startDailyRun(); };
   $('#btnRandom').onclick = function () { startSession('random'); };
   $('#btnJourney').onclick = function () { if (window.renderJourney) window.renderJourney(); };
   document.querySelectorAll('[data-jn]').forEach(function (b) {
@@ -984,6 +995,12 @@ function renderSetResult() {
   var right = list.filter(function (r) { return r.ok; }).length;
 
   if (session.mode === 'exam') { renderExamResult(); return; }
+  // 오늘의 한 판: 복습 세트가 끝나면 정령 인터스티셜로 넘긴다
+  if (session.dailyChain && window.dailyAfterReview) {
+    var ds = session; session = null;
+    window.dailyAfterReview(ds);
+    return;
+  }
 
   var pct = list.length ? right / list.length : 0;
   var msg;
