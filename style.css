@@ -2730,3 +2730,16 @@ html[data-theme="light"] .sp-grow-bar { background: var(--bg-2); }
 @media (prefers-reduced-motion: reduce) {
   .sp-body, .sp-body.eat, .sp-body.happy, .spirit-card.evolved .sp-body { animation: none; }
 }
+
+/* 시험 임박 홈 — 벼락치기 우선 */
+.daily-btn.cram {
+  background: linear-gradient(178deg, #d9622f, #a8401a);
+  border-bottom-color: #6b2408;
+  box-shadow: 0 6px 20px rgba(200, 80, 40, .38), var(--inset-hi);
+}
+.daily-btn.slim {
+  font-size: 1rem; padding: 12px 14px 10px; border-bottom-width: 5px;
+  background: linear-gradient(178deg, var(--card-2), var(--card));
+  color: var(--ink-soft); border: 1px solid var(--line); border-bottom: 5px solid var(--bg-2);
+  box-shadow: var(--shadow);
+}

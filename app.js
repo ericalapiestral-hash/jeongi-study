@@ -667,12 +667,24 @@ function renderHome() {
   }
 
   var doneToday = S.dailyDone === todayStr();
-  v.innerHTML =
-    (window.spiritHomeHtml ? window.spiritHomeHtml() : '') +
-
+  // 시험이 코앞이면(D-7 이내) 홈을 벼락치기 모드로 뒤집는다.
+  // "하루 한 개념"은 129일짜리 페이스라, 며칠 안 남은 사람에게는 정반대다.
+  var dl = window.daysLeft ? window.daysLeft() : null;
+  var cram = dl !== null && dl >= 0 && dl <= 7;
+  var mainBtn = cram ?
+    '<button class="daily-btn cram" id="cramGo">' +
+    '🔥 ' + (dl === 0 ? '시험 당일 — 마지막 정리' : 'D-' + dl + ' 벼락치기 오늘 할 일') +
+    '<small>다 하려 말고 점수 잘 나오는 것부터. 지금은 이것만 하세요</small></button>' +
+    '<button class="daily-btn slim' + (doneToday ? ' again' : '') + '" id="dailyGo">' +
+    (doneToday ? '한 판 더 하기' : '오늘의 한 판 (복습 + 새 개념)') + '</button>'
+    :
     '<button class="daily-btn' + (doneToday ? ' again' : '') + '" id="dailyGo">' +
     (doneToday ? '한 판 더 하기' : '▶ 오늘의 한 판') +
-    '<small>' + (doneToday ? '정령이 아직 더 먹고 싶대요' : '복습 조금 + 새 개념 하나 · 5분이면 끝나요') + '</small></button>' +
+    '<small>' + (doneToday ? '정령이 아직 더 먹고 싶대요' : '복습 조금 + 새 개념 하나 · 5분이면 끝나요') + '</small></button>';
+
+  v.innerHTML =
+    (window.spiritHomeHtml ? window.spiritHomeHtml() : '') +
+    mainBtn +
 
     '<div class="duo-stats">' +
     '<span class="today-pill">Lv.' + li.n + '</span>' +
@@ -728,6 +740,8 @@ function renderHome() {
 
   var dg = $('#dailyGo');
   if (dg) dg.onclick = function () { if (window.startDailyRun) window.startDailyRun(); };
+  var cg = $('#cramGo');
+  if (cg) cg.onclick = function () { if (window.renderCrunch) window.renderCrunch(); };
   $('#btnRandom').onclick = function () { startSession('random'); };
   $('#btnJourney').onclick = function () { if (window.renderJourney) window.renderJourney(); };
   document.querySelectorAll('[data-jn]').forEach(function (b) {
